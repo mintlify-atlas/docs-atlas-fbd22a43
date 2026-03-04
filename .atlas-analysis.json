@@ -1,0 +1,90 @@
+{
+  "projectType": "frontend",
+  "projectName": "File Viewers",
+  "projectDescription": "A cross-platform desktop app for viewing and editing Markdown, JSON, and CSV files.",
+  "theme": "palm",
+  "primaryColor": "#040404",
+  "lightColor": "#ec4618",
+  "darkColor": "#f8a484",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/markdown-viewer",
+              "features/json-viewer",
+              "features/csv-viewer"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/theme-customization",
+              "guides/keyboard-shortcuts",
+              "guides/file-operations"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/component-hierarchy",
+              "architecture/state-management",
+              "architecture/file-loading"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "components/ui-primitives",
+              "components/editor-panel",
+              "components/preview-components"
+            ]
+          },
+          {
+            "group": "Building",
+            "pages": [
+              "building/development-setup",
+              "building/production-build",
+              "building/platform-support"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-format file viewer for Markdown, JSON, and CSV files",
+    "Monaco editor integration with syntax highlighting",
+    "Advanced CSV viewer with search and SQL query capabilities",
+    "Cross-platform desktop app built with Tauri 2",
+    "Drag-and-drop file loading support",
+    "Customizable theme system (light/dark/system)"
+  ],
+  "publicApiSurface": [
+    "App (Root component with state management)",
+    "EditorPanel (Monaco editor wrapper)",
+    "PreviewPanel (Format router component)",
+    "MarkdownPreview (GitHub-flavored Markdown renderer)",
+    "JsonPreview (JSON tree viewer)",
+    "CsvPreview (Advanced CSV table viewer with SQL support)",
+    "EmptyState (Welcome screen)",
+    "Button, Input, Textarea (UI primitives)"
+  ]
+}
