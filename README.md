@@ -1,28 +1,18 @@
-# Mintlify Starter Kit
+# File Viewers Documentation
 
-Use the starter kit to get your docs deployed and ready to customize.
+Documentation for File Viewers - a cross-platform desktop app for viewing and editing Markdown, JSON, and CSV files.
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+## About
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+This documentation covers:
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+- Installation and setup
+- Feature guides (Markdown, JSON, CSV viewers)
+- Keyboard shortcuts and file operations
+- Architecture and component reference
+- Building and platform support
 
-## AI-assisted writing
-
-Set up your AI coding tool to work with Mintlify:
-
-```bash
-npx skills add https://mintlify.com/docs
-```
-
-This command installs Mintlify's documentation skill for your configured AI tools like Claude Code, Cursor, Windsurf, and others. The skill includes component reference, writing standards, and workflow guidance.
-
-See the [AI tools guides](/ai-tools) for tool-specific setup.
+**[Get started with File Viewers](/introduction)**
 
 ## Development
 

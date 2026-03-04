@@ -11,8 +11,9 @@ All state lives in `App.tsx`. Child components are pure and receive data via pro
 
 | State | Type | Default | Description |
 |-------|------|---------|-------------|
-| `format` | `Format` | `"markdown"` | Active tab (`"markdown"` \| `"json"` \| `"csv"`) |
-| `content` | `Record<Format, string>` | `{ markdown: "", json: "", csv: "" }` | Per-format editor text; switching tabs preserves each tab's content |
+| `tabs` | `FileTab[]` | `[createTab()]` | Array of open file tabs |
+| `activeTabId` | `string` | `tabs[0].id` | ID of the currently active tab |
+| `showEditor` | `boolean` | `true` | Whether to show the editor panel (toggled with toolbar button) |
 | `themePref` | `ThemePreference` | `"system"` | User theme selection (`"system"` \| `"light"` \| `"dark"`) |
 | `systemDark` | `boolean` | `window.matchMedia(…).matches` | OS dark-mode state (only updated when `themePref === "system"`) |
 | `themeMenuOpen` | `boolean` | `false` | Theme dropdown visibility |
@@ -21,16 +22,23 @@ All state lives in `App.tsx`. Child components are pure and receive data via pro
 ### TypeScript Interfaces
 
 ```tsx
-// App.tsx
-type Format = "markdown" | "json" | "csv";
+// App.tsx:30-38
+interface FileTab {
+  id: string;
+  name: string;
+  format: Format;
+  content: string;
+  previewContent: string;
+  path?: string;
+  isDirty?: boolean;
+}
+
+type Format = "markdown" | "json" | "csv" | "mdx";
 type ThemePreference = "system" | "dark" | "light";
 
-const [format, setFormat] = useState<Format>("markdown");
-const [content, setContent] = useState<Record<Format, string>>({
-  markdown: "",
-  json: "",
-  csv: "",
-});
+const [tabs, setTabs] = useState<FileTab[]>([createTab()]);
+const [activeTabId, setActiveTabId] = useState<string>(tabs[0].id);
+const [showEditor, setShowEditor] = useState(true);
 const [themePref, setThemePref] = useState<ThemePreference>("system");
 const [systemDark, setSystemDark] = useState(() =>
   window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -41,9 +49,22 @@ const [isDragOver, setIsDragOver] = useState(false);
 
 ## Derived State
 
+### Active Tab
+
+The active tab is derived from `tabs` and `activeTabId`:
+
+```tsx
+// App.tsx:185-186
+const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
+const { format, content, previewContent } = activeTab;
+```
+
+### Theme State
+
 `isDark` is computed, not stored:
 
 ```tsx
+// App.tsx:198
 const isDark = themePref === "dark" || (themePref === "system" && systemDark);
 ```
 
@@ -52,31 +73,59 @@ This boolean is passed down to components that need explicit theme awareness:
 - **EditorPanel**: Selects Monaco theme (`"vs-dark"` vs `"vs"`)
 - **JsonPreview**: Selects `react-json-view-lite` styles (`darkStyles` vs `defaultStyles`)
 
-## Per-Format Content Persistence
+## Tab Management
 
-Switching between Markdown, JSON, and CSV tabs preserves each format's content:
+### Multiple Tabs
+
+File Viewers supports multiple tabs. Each tab has its own content, format, and state:
 
 ```tsx
-const handleFormatChange = (newFormat: Format) => {
-  setFormat(newFormat);
-};
-
-const handleContentChange = (newValue: string) => {
-  setContent((prev) => ({
-    ...prev,
-    [format]: newValue,  // Only update the active format
-  }));
-};
+// App.tsx:168-171
+const [tabs, setTabs] = useState<FileTab[]>([createTab()]);
+const [activeTabId, setActiveTabId] = useState<string>(tabs[0].id);
 ```
 
-### Why This Pattern?
+### Creating a New Tab
 
-Users can:
-1. Paste Markdown into the Markdown tab
-2. Switch to JSON tab and paste JSON
-3. Switch back to Markdown tab — their Markdown content is still there
+```tsx
+// App.tsx:65-74
+function createTab(): FileTab {
+  return {
+    id: `tab-${nextTabId++}`,
+    name: "New File",
+    format: "markdown",
+    content: "",
+    previewContent: "",
+  };
+}
+```
 
-Each tab acts as an independent workspace.
+### Updating the Active Tab
+
+The `updateActiveTab` helper updates only the active tab:
+
+```tsx
+// App.tsx:188-195
+const updateActiveTab = useCallback(
+  (updates: Partial<Omit<FileTab, "id">>) => {
+    setTabs((prev) =>
+      prev.map((t) => (t.id === activeTabId ? { ...t, ...updates } : t))
+    );
+  },
+  [activeTabId]
+);
+```
+
+### Tab Persistence
+
+Each tab maintains its content independently. When you switch tabs, the content is preserved:
+
+```tsx
+// Switching to a different tab
+setActiveTabId(newTabId);
+
+// The content of the previous tab remains in the tabs array
+```
 
 ## Controlled Component Pattern
 
@@ -84,8 +133,10 @@ All child components are controlled — they receive their current value and an 
 
 ```tsx
 <EditorPanel
-  value={content[format]}
-  onChange={(newValue) => setContent((prev) => ({ ...prev, [format]: newValue }))}
+  value={content}
+  onChange={(newValue) => {
+    updateActiveTab({ content: newValue, isDirty: true });
+  }}
   language={FORMAT_LANGUAGE[format]}
   isDark={isDark}
 />
@@ -96,6 +147,7 @@ All child components are controlled — they receive their current value and an 
 1. **Single source of truth** - State lives in one place (`App.tsx`)
 2. **Predictable updates** - All state changes flow through explicit setter functions
 3. **Easier debugging** - Use React DevTools to inspect state at the top level
+4. **Tab isolation** - Each tab's state is independent and preserved when switching
 
 ## State Update Patterns
 
@@ -114,13 +166,14 @@ Format-specific actions (e.g., JSON formatting):
 
 ```tsx
 const formatJson = useCallback(() => {
+  if (format !== "json") return;
   try {
-    const formatted = JSON.stringify(JSON.parse(content["json"]), null, 2);
-    setContent((prev) => ({ ...prev, json: formatted }));
+    const formatted = JSON.stringify(JSON.parse(content), null, 2);
+    updateActiveTab({ content: formatted, isDirty: true });
   } catch {
     // Invalid JSON — leave as-is
   }
-}, [content]);
+}, [format, content, updateActiveTab]);
 ```
 
 ### 3. Async Updates
@@ -128,14 +181,36 @@ const formatJson = useCallback(() => {
 File loading from Tauri APIs:
 
 ```tsx
+// App.tsx:293-327
 const loadFile = useCallback(async (path: string) => {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
   const fmt: Format = EXT_TO_FORMAT[ext] ?? "markdown";
   const text = await readTextFile(path);
   
-  setContent((prev) => ({ ...prev, [fmt]: text }));
-  setFormat(fmt);
-}, []);
+  // Reuse empty tab or create new tab
+  const emptyTab = tabs.find((t) => !t.path && !t.content);
+  if (emptyTab) {
+    setTabs((prev) =>
+      prev.map((t) =>
+        t.id === emptyTab.id
+          ? { ...t, path, name: basename(path), format: fmt, content: text }
+          : t
+      )
+    );
+    setActiveTabId(emptyTab.id);
+  } else {
+    const newTab: FileTab = {
+      id: `tab-${nextTabId++}`,
+      path,
+      name: basename(path),
+      format: fmt,
+      content: text,
+      previewContent: text,
+    };
+    setTabs((prev) => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+  }
+}, [tabs]);
 ```
 
 ## Theme State Management
@@ -201,6 +276,25 @@ CSS variables in `App.css` respond to the `[data-theme]` attribute:
   --color-text: #171717;
 }
 ```
+
+## Editor Panel Toggle
+
+The `showEditor` state controls whether the editor panel is visible:
+
+```tsx
+// App.tsx:181
+const [showEditor, setShowEditor] = useState(true);
+```
+
+Users can toggle the editor panel with a toolbar button to maximize the preview area:
+
+```tsx
+<Button onClick={() => setShowEditor((prev) => !prev)}>
+  {showEditor ? <IconLayoutSidebarLeftCollapse /> : <IconLayoutSidebarLeftExpand />}
+</Button>
+```
+
+When `showEditor` is `false`, only the preview panel is shown (similar to CSV mode).
 
 ## Drag-and-Drop State
 
