@@ -1,0 +1,245 @@
+---
+title: Installation
+description: Set up File Viewers for local development
+---
+
+## Prerequisites
+
+Before installing File Viewers, ensure you have the following tools installed:
+
+<AccordionGroup>
+  <Accordion title="Rust (stable toolchain)">
+    File Viewers uses Tauri 2, which requires Rust for building the native app shell.
+
+    ```bash
+    # Install Rust via rustup
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    
+    # Verify installation
+    rustc --version
+    cargo --version
+    ```
+
+    <Note>
+    After installation, restart your terminal or run `source $HOME/.cargo/env` to update your PATH.
+    </Note>
+
+    Visit [rust-lang.org/tools/install](https://www.rust-lang.org/tools/install) for platform-specific instructions.
+  </Accordion>
+
+  <Accordion title="Bun >= 1.0">
+    Bun is used as the JavaScript runtime and package manager.
+
+    ```bash
+    # Install Bun (macOS/Linux)
+    curl -fsSL https://bun.sh/install | bash
+    
+    # Install Bun (Windows)
+    powershell -c "irm bun.sh/install.ps1 | iex"
+    
+    # Verify installation
+    bun --version
+    ```
+
+    Requires **Bun 1.0 or later**. Visit [bun.sh](https://bun.sh) for more details.
+  </Accordion>
+</AccordionGroup>
+
+## Platform-Specific Setup
+
+<Tabs>
+  <Tab title="macOS">
+    ### macOS 12+ (Monterey or later)
+
+    Install Xcode Command Line Tools if not already installed:
+
+    ```bash
+    xcode-select --install
+    ```
+
+    <Note>
+    File Viewers supports both Intel and Apple Silicon Macs. Production builds use `--target universal-apple-darwin` for universal binaries.
+    </Note>
+  </Tab>
+
+  <Tab title="Linux">
+    ### GTK Dependencies
+
+    Tauri 2 requires GTK and WebKit libraries. Install them via your distribution's package manager:
+
+    <CodeGroup>
+    ```bash Ubuntu/Debian
+    sudo apt update
+    sudo apt install libwebkit2gtk-4.1-dev \
+      build-essential \
+      curl \
+      wget \
+      file \
+      libssl-dev \
+      libayatana-appindicator3-dev \
+      librsvg2-dev
+    ```
+
+    ```bash Fedora
+    sudo dnf install webkit2gtk4.1-devel \
+      openssl-devel \
+      curl \
+      wget \
+      file \
+      libappindicator-gtk3-devel \
+      librsvg2-devel
+    ```
+
+    ```bash Arch
+    sudo pacman -Syu
+    sudo pacman -S webkit2gtk-4.1 \
+      base-devel \
+      curl \
+      wget \
+      file \
+      openssl \
+      appmenu-gtk-module \
+      gtk3 \
+      libappindicator-gtk3 \
+      librsvg
+    ```
+    </CodeGroup>
+
+    <Warning>
+    Make sure to install **webkit2gtk-4.1** (not the older 4.0 version). Tauri 2 requires the newer WebKitGTK API.
+    </Warning>
+  </Tab>
+
+  <Tab title="Windows">
+    ### Windows 10+ (64-bit)
+
+    Install [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/):
+
+    1. Download the installer
+    2. Select **Desktop development with C++**
+    3. Install WebView2 (usually pre-installed on Windows 10/11)
+
+    Alternatively, install the full Visual Studio with C++ support.
+
+    <Note>
+    WebView2 comes pre-installed on Windows 11 and recent Windows 10 builds. If missing, download it from [developer.microsoft.com/microsoft-edge/webview2](https://developer.microsoft.com/microsoft-edge/webview2).
+    </Note>
+  </Tab>
+</Tabs>
+
+## Development Installation
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/yourusername/file-viewers.git
+    cd file-viewers/desktop-app
+    ```
+
+    <Note>
+    The project uses a monorepo structure. The desktop app lives in the `desktop-app/` directory.
+    </Note>
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    bun install
+    ```
+
+    This installs all JavaScript dependencies defined in `package.json`:
+    - React 19 + TypeScript
+    - Tauri plugins (dialog, fs, opener)
+    - Monaco Editor + language workers
+    - UI libraries (TanStack Table, react-markdown, etc.)
+  </Step>
+
+  <Step title="Verify Tauri setup">
+    ```bash
+    bun run tauri info
+    ```
+
+    This command checks your environment and reports:
+    - Rust/Cargo versions
+    - Node.js/Bun versions
+    - Platform-specific build tools (Xcode, MSVC, GTK)
+
+    <Warning>
+    If you see missing dependencies, install them before proceeding. The `tauri info` output will guide you.
+    </Warning>
+  </Step>
+
+  <Step title="Run the development server">
+    ```bash
+    bun run tauri dev
+    ```
+
+    This command:
+    1. Starts the Vite dev server on `http://localhost:1420`
+    2. Compiles the Rust backend (first run takes 2-3 minutes)
+    3. Launches the native window with hot-reload enabled
+
+    <Note>
+    The first `tauri dev` run compiles all Rust dependencies. Subsequent runs are much faster (~5-10 seconds).
+    </Note>
+  </Step>
+</Steps>
+
+## Other Useful Commands
+
+```bash
+# Type-check TypeScript without building
+bunx tsc --noEmit
+
+# Build production bundle for your platform
+bun run tauri build
+
+# Build universal binary (macOS only)
+bun run tauri build --target universal-apple-darwin
+```
+
+<Note>
+Production builds are output to `src-tauri/target/release/bundle/` with platform-specific formats:
+- **macOS**: `.app` bundle and `.dmg` installer
+- **Linux**: `.deb`, `.AppImage`
+- **Windows**: `.msi`, `.exe` (NSIS installer)
+</Note>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Monaco workers fail to load">
+    File Viewers bundles Monaco Editor locally (no CDN). If you see worker errors:
+
+    1. Clear Vite cache: `rm -rf node_modules/.vite`
+    2. Rebuild: `bun run tauri dev`
+
+    The Monaco environment is configured in `src/main.tsx` to use local workers.
+  </Accordion>
+
+  <Accordion title="Tauri build fails on Linux">
+    Ensure you have **webkit2gtk-4.1-dev** (not 4.0). Check installed version:
+
+    ```bash
+    pkg-config --modversion webkit2gtk-4.1
+    ```
+
+    Should output `2.40.0` or higher.
+  </Accordion>
+
+  <Accordion title="Rust compile errors">
+    Update to the latest stable Rust toolchain:
+
+    ```bash
+    rustup update stable
+    rustup default stable
+    ```
+
+    File Viewers targets Tauri 2.x, which requires Rust 1.70+.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+  Launch the app and open your first file
+</Card>

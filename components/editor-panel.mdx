@@ -1,0 +1,268 @@
+---
+title: EditorPanel
+description: Monaco code editor wrapper for Markdown, JSON, and CSV content editing
+---
+
+## Overview
+
+The `EditorPanel` component is a Monaco editor wrapper that provides syntax-highlighted code editing with theme support.
+
+**Location:** `src/components/EditorPanel.tsx`
+
+<Info>
+The editor is **hidden when `format === "csv"`** because CSV preview is shown full-width with no left editor panel.
+</Info>
+
+---
+
+## Props
+
+<ParamField path="value" type="string" required>
+  Current editor text content (controlled component)
+</ParamField>
+
+<ParamField path="onChange" type="(value: string) => void" required>
+  Callback fired on every keystroke with the updated content
+</ParamField>
+
+<ParamField path="language" type="string" required>
+  Monaco language mode. Supported values:
+  - `"markdown"` — Markdown syntax highlighting
+  - `"json"` — JSON syntax highlighting
+  - `"plaintext"` — No syntax highlighting
+</ParamField>
+
+<ParamField path="isDark" type="boolean" required>
+  Theme selector:
+  - `true` → Uses Monaco's `"vs-dark"` theme
+  - `false` → Uses Monaco's `"vs"` theme (light)
+</ParamField>
+
+---
+
+## Monaco Configuration
+
+The editor is configured with the following options:
+
+### Editor Options
+
+<ResponseField name="minimap.enabled" type="boolean" default="false">
+  Minimap is disabled to maximize editing space
+</ResponseField>
+
+<ResponseField name="fontSize" type="number" default="14">
+  Base font size in pixels
+</ResponseField>
+
+<ResponseField name="lineNumbers" type="'on'" default="'on'">
+  Line numbers are always visible
+</ResponseField>
+
+<ResponseField name="wordWrap" type="'on'" default="'on'">
+  Long lines wrap automatically
+</ResponseField>
+
+<ResponseField name="scrollBeyondLastLine" type="boolean" default="false">
+  Prevents scrolling past the last line
+</ResponseField>
+
+<ResponseField name="padding" type="object" default="{ top: 16, bottom: 16 }">
+  Vertical padding inside the editor viewport
+</ResponseField>
+
+<ResponseField name="fontFamily" type="string">
+  Font stack: `'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace`
+</ResponseField>
+
+<ResponseField name="fontLigatures" type="boolean" default="true">
+  Enables programming ligatures (e.g., `=>` renders as ⇒)
+</ResponseField>
+
+<ResponseField name="renderLineHighlight" type="'all'" default="'all'">
+  Highlights the entire current line
+</ResponseField>
+
+<ResponseField name="cursorBlinking" type="'smooth'" default="'smooth'">
+  Smooth cursor blink animation
+</ResponseField>
+
+<ResponseField name="smoothScrolling" type="boolean" default="true">
+  Enables smooth scrolling animations
+</ResponseField>
+
+### Automatic Layout
+
+The editor automatically resizes with its container using the `automaticLayout: true` option (visible in the full implementation).
+
+---
+
+## Monaco Bundle
+
+<Warning>
+Monaco is pre-configured as a **local bundle** in `main.tsx` — no network calls are made at runtime.
+</Warning>
+
+The Monaco editor is bundled with the application and does not require CDN resources. This ensures the editor works offline and loads instantly.
+
+---
+
+## Usage Example
+
+### Basic Usage
+
+```tsx
+import { EditorPanel } from "@/components/EditorPanel";
+import { useState } from "react";
+
+function App() {
+  const [content, setContent] = useState("");
+  const [isDark, setIsDark] = useState(true);
+  
+  return (
+    <EditorPanel
+      value={content}
+      onChange={setContent}
+      language="markdown"
+      isDark={isDark}
+    />
+  );
+}
+```
+
+### Conditional Rendering (CSV Mode)
+
+```tsx
+function App() {
+  const [format, setFormat] = useState<"markdown" | "json" | "csv">("markdown");
+  const [content, setContent] = useState("");
+  
+  return (
+    <div className="app-layout">
+      {/* Hide editor in CSV mode */}
+      {format !== "csv" && (
+        <EditorPanel
+          value={content}
+          onChange={setContent}
+          language={format === "json" ? "json" : "markdown"}
+          isDark={isDark}
+        />
+      )}
+      
+      <PreviewPanel
+        content={content}
+        format={format}
+        isDark={isDark}
+        onOpenFile={handleOpenFile}
+      />
+    </div>
+  );
+}
+```
+
+### Language Mapping
+
+```tsx
+function getEditorLanguage(format: Format): string {
+  switch (format) {
+    case "json":
+      return "json";
+    case "markdown":
+    case "mdx":
+      return "markdown";
+    default:
+      return "plaintext";
+  }
+}
+
+<EditorPanel
+  value={content}
+  onChange={setContent}
+  language={getEditorLanguage(format)}
+  isDark={isDark}
+/>
+```
+
+---
+
+## Implementation
+
+The component is a thin wrapper around `@monaco-editor/react`:
+
+```tsx src/components/EditorPanel.tsx
+import Editor from "@monaco-editor/react";
+
+interface EditorPanelProps {
+  value: string;
+  onChange: (value: string) => void;
+  language: string;
+  isDark: boolean;
+}
+
+export function EditorPanel({
+  value,
+  onChange,
+  language,
+  isDark,
+}: EditorPanelProps) {
+  return (
+    <div className="editor-panel">
+      <Editor
+        height="100%"
+        language={language}
+        value={value}
+        theme={isDark ? "vs-dark" : "vs"}
+        onChange={(val) => onChange(val ?? "")}
+        options={{
+          minimap: { enabled: false },
+          fontSize: 14,
+          lineNumbers: "on",
+          wordWrap: "on",
+          scrollBeyondLastLine: false,
+          padding: { top: 16, bottom: 16 },
+          fontFamily:
+            "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
+          fontLigatures: true,
+          renderLineHighlight: "all",
+          cursorBlinking: "smooth",
+          smoothScrolling: true,
+        }}
+      />
+    </div>
+  );
+}
+```
+
+---
+
+## Styling
+
+The `.editor-panel` wrapper class is styled in the global CSS:
+
+```css
+.editor-panel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--editor-bg);
+}
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Controlled Component:** Always manage `value` state in a parent component. Never use uncontrolled mode.
+</Tip>
+
+<Tip>
+**Performance:** Monaco handles large files efficiently. No special optimization needed for typical file sizes.
+</Tip>
+
+<Tip>
+**Theme Sync:** Keep the `isDark` prop in sync with your app's theme state to ensure consistent styling.
+</Tip>
+
+<Warning>
+**Null Handling:** The `onChange` callback converts `undefined` to empty string (`""`) to maintain controlled state.
+</Warning>

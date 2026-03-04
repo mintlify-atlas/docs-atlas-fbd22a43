@@ -1,0 +1,312 @@
+---
+title: UI Primitives
+description: Reusable base UI components used across the File Viewer application
+---
+
+## Overview
+
+UI Primitives are reusable base elements located in `src/components/ui/`. All styles use **Tailwind utility classes only** — no raw CSS. Never use native HTML elements directly; always import from this package.
+
+<Warning>
+Never use native `<button>`, `<input>`, or `<textarea>` elements directly. Always import the corresponding component from `src/components/ui/`.
+</Warning>
+
+---
+
+## Button
+
+Wraps `@base-ui/react` Button with variant styles managed via `cva` (class-variance-authority).
+
+**Location:** `src/components/ui/Button.tsx`
+
+### Props
+
+<ParamField path="variant" type="'toolbar' | 'ghost' | 'icon' | 'outline' | 'primary' | 'link'" default="toolbar">
+  Visual style variant for the button
+</ParamField>
+
+<ParamField path="active" type="boolean" default="undefined">
+  Sets `data-active` attribute to activate `data-[active]:` Tailwind styles
+</ParamField>
+
+<ParamField path="className" type="string" default="''">
+  Additional CSS classes merged on top of variant classes via `cn()`
+</ParamField>
+
+<ParamField path="...rest" type="ComponentProps<BaseButton>">
+  All other props are forwarded to `@base-ui/react` Button
+</ParamField>
+
+### Variants
+
+<Accordion title="toolbar">
+  **Used for:** Toolbar actions (Format, Minify, Clear data, theme toggle)
+  
+  **Behavior:** Background tint + primary text color on hover
+  
+  **Style:**
+  - Transparent background with no border
+  - Muted text (11px, uppercase, medium weight)
+  - Transitions to primary text and tab background on hover
+  
+  ```tsx
+  <Button variant="toolbar">
+    <IconSparkles size={11} />
+    Format
+  </Button>
+  ```
+</Accordion>
+
+<Accordion title="ghost">
+  **Used for:** Dropdown menu items (theme options)
+  
+  **Behavior:** Background tint on hover; pill background + white text when active
+  
+  **Style:**
+  - Full-width flex layout with 7px gap
+  - Muted text that transitions to primary on hover
+  - Active state shows accent text with pill background
+  
+  ```tsx
+  <Button variant="ghost" active={theme === 'dark'}>
+    <IconMoon size={13} />
+    Dark
+  </Button>
+  ```
+</Accordion>
+
+<Accordion title="icon">
+  **Used for:** Square icon-only buttons (code block collapse/copy)
+  
+  **Behavior:** Subtle hover state with background tint
+  
+  **Style:**
+  - 20px × 20px square with centered content
+  - Transparent background with rounded corners
+  - Muted icon that transitions to primary on hover
+  
+  ```tsx
+  <Button variant="icon" title="Copy">
+    <IconCopy size={13} />
+  </Button>
+  ```
+</Accordion>
+
+<Accordion title="outline">
+  **Used for:** Bordered toggles (CSV mode button, SQL mode toggle)
+  
+  **Behavior:** Accent border on hover; accent text + tinted background when active
+  
+  **Style:**
+  - Border with transparent background
+  - Accent color (grenadier-400) for hover and active states
+  - Active state includes 12% opacity background tint
+  
+  ```tsx
+  <Button variant="outline" active={mode === 'sql'}>
+    <IconDatabase size={13} />
+    SQL
+  </Button>
+  ```
+</Accordion>
+
+<Accordion title="primary">
+  **Used for:** Filled primary actions (Run query button)
+  
+  **Behavior:** Lighter background on hover, darker on active
+  
+  **Style:**
+  - Filled grenadier-600 background with white text
+  - Transitions to grenadier-500 on hover
+  - Transitions to grenadier-700 on active press
+  
+  ```tsx
+  <Button variant="primary" onClick={runQuery}>
+    <IconPlayerPlay size={11} />
+    Run
+  </Button>
+  ```
+</Accordion>
+
+<Accordion title="link">
+  **Used for:** Plain text buttons (Open File in EmptyState)
+  
+  **Behavior:** Underline on hover
+  
+  **Style:**
+  - Transparent background with no border
+  - Primary text color (13px)
+  - Left-aligned with underline-on-hover
+  
+  ```tsx
+  <Button variant="link" onClick={onOpenFile}>
+    Open File
+  </Button>
+  ```
+</Accordion>
+
+### Active State Pattern
+
+The `active` prop uses the `data-[active]:` Tailwind variant for higher CSS specificity without requiring `!important`.
+
+```tsx
+// Component implementation
+export function Button({ variant, active, className, ...props }: ButtonProps) {
+  return (
+    <BaseButton
+      data-active={active || undefined}
+      className={cn(buttonVariants({ variant }), className)}
+      {...props}
+    />
+  );
+}
+```
+
+When `active={true}`, the element receives `data-active="true"`, activating all `data-[active]:` Tailwind classes defined in the variant.
+
+---
+
+## Input
+
+Wraps `@base-ui/react` Input with baked-in base styles including border, background, focus ring, and placeholder color.
+
+**Location:** `src/components/ui/Input.tsx`
+
+### Props
+
+<ParamField path="className" type="string">
+  Additional CSS classes merged on top of base styles
+</ParamField>
+
+<ParamField path="...rest" type="ComponentProps<BaseInput>">
+  All other props are forwarded to `@base-ui/react` Input
+</ParamField>
+
+### Base Styles
+
+- **Width:** 180px default (override with `className`)
+- **Border:** 1px solid border color, transitions to grenadier-400 on focus
+- **Focus ring:** Grenadier-200 ring appears on focus
+- **Placeholder:** Muted text color
+- **Font:** 13px with 150ms transition
+
+### Common Extensions
+
+```tsx
+// Leave room for leading icon
+<Input className="pl-7" placeholder="Search..." />
+
+// Full-width in flex container
+<Input className="flex-1 w-full" />
+
+// Monospace for SQL/code inputs
+<Input className="font-mono text-xs" />
+```
+
+### Usage Example
+
+```tsx
+import { Input } from "@/components/ui/Input";
+
+export function SearchInput() {
+  const [value, setValue] = useState("");
+  
+  return (
+    <div className="relative">
+      <IconSearch size={11} className="absolute left-2 top-1/2 -translate-y-1/2" />
+      <Input
+        className="pl-7 w-full"
+        placeholder="Find"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+      />
+    </div>
+  );
+}
+```
+
+---
+
+## Textarea
+
+Wraps native `<textarea>` with the same base styles as Input, plus vertical resize capability.
+
+**Location:** `src/components/ui/Textarea.tsx`
+
+<Info>
+`@base-ui/react` does not provide a Textarea primitive, so this component wraps the native element directly.
+</Info>
+
+### Props
+
+<ParamField path="className" type="string">
+  Additional CSS classes merged on top of base styles
+</ParamField>
+
+<ParamField path="...rest" type="ComponentProps<'textarea'>">
+  All native textarea attributes (rows, cols, placeholder, etc.)
+</ParamField>
+
+### Base Styles
+
+- **Width:** 100% (full-width)
+- **Resize:** Vertical only (`resize-y`)
+- **Border:** Same as Input — transitions to accent on focus
+- **Padding:** 8px vertical, 12px horizontal
+- **Font:** 13px with muted placeholder
+
+### Usage Example
+
+```tsx
+import { Textarea } from "@/components/ui/Textarea";
+
+export function EditCell({ value, onChange }) {
+  return (
+    <Textarea
+      rows={4}
+      className="font-mono text-xs"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+}
+```
+
+---
+
+## Implementation Details
+
+### Class Variance Authority (CVA)
+
+All variants are managed using `cva` from `class-variance-authority`:
+
+```tsx
+import { cva, type VariantProps } from "class-variance-authority";
+
+const buttonVariants = cva("cursor-pointer transition-colors", {
+  variants: {
+    variant: {
+      toolbar: "inline-flex items-center gap-[5px] px-[10px] ...",
+      ghost: "flex items-center gap-[7px] w-full px-[10px] ...",
+      // ... other variants
+    },
+  },
+  defaultVariants: {
+    variant: "toolbar",
+  },
+});
+```
+
+### CSS Utilities
+
+All components use the `cn()` utility function from `@/lib/utils` to merge Tailwind classes:
+
+```tsx
+import { cn } from "@/lib/utils";
+
+export function Input({ className, ...props }) {
+  return <BaseInput className={cn(inputVariants(), className)} {...props} />;
+}
+```
+
+This ensures custom classes can override base styles when needed.

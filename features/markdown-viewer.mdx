@@ -1,0 +1,243 @@
+---
+title: "Markdown Viewer"
+description: "GitHub Flavored Markdown rendering with syntax highlighting and collapsible code blocks"
+---
+
+## Overview
+
+The Markdown viewer renders GitHub Flavored Markdown (GFM) with full support for tables, strikethrough, task lists, autolinks, and syntax-highlighted code blocks. It provides a live preview that updates as you type, making it ideal for documentation authoring and README file editing.
+
+## Libraries Used
+
+The Markdown preview is built on a carefully selected stack of React-compatible libraries:
+
+<CardGroup cols={3}>
+  <Card title="react-markdown" icon="react">
+    Core Markdown to React renderer
+  </Card>
+  <Card title="remark-gfm" icon="gear">
+    GitHub Flavored Markdown plugin
+  </Card>
+  <Card title="rehype-highlight" icon="code">
+    Syntax highlighting for code blocks
+  </Card>
+</CardGroup>
+
+### Implementation
+
+The component uses a plugin-based architecture to transform Markdown:
+
+```tsx title="MarkdownPreview.tsx" {2-3}
+<ReactMarkdown
+  remarkPlugins={[remarkGfm]}
+  rehypePlugins={[rehypeHighlight]}
+  components={{
+    pre: ({ node, children }: any) => (
+      <CodeBlock node={node}>{children}</CodeBlock>
+    ),
+  }}
+>
+  {content}
+</ReactMarkdown>
+```
+
+See the full implementation in `MarkdownPreview.tsx:158-169`
+
+## GitHub Flavored Markdown Features
+
+The `remark-gfm` plugin enables full GFM support:
+
+### Tables
+
+Create structured data tables with column alignment:
+
+```markdown
+| Feature | Status | Priority |
+|---------|--------|----------|
+| Tables  | ✓      | High     |
+| Lists   | ✓      | High     |
+```
+
+### Strikethrough
+
+Mark deleted or deprecated content:
+
+```markdown
+~~This feature is deprecated~~
+```
+
+### Task Lists
+
+Track progress with interactive checkboxes:
+
+```markdown
+- [x] Completed task
+- [ ] Pending task
+- [ ] Future enhancement
+```
+
+### Autolinks
+
+Automatically convert URLs to clickable links:
+
+```markdown
+https://github.com/user/repo automatically becomes a link
+```
+
+## Code Block Features
+
+Code blocks are rendered with a custom `CodeBlock` component that provides enhanced functionality:
+
+### Interactive Toolbar
+
+Each code block includes a toolbar with:
+
+- **Language badge** - Displays the detected language in uppercase (e.g., `TYPESCRIPT`, `PYTHON`)
+- **Line count** - Shows the number of lines in the block
+- **Collapse/expand button** - Toggle code visibility
+- **Copy button** - One-click copy to clipboard with visual feedback
+
+```tsx title="Code block toolbar" {5-8,11-14}
+const handleCopy = async () => {
+  await navigator.clipboard.writeText(rawText);
+  setCopied(true);
+  setTimeout(() => setCopied(false), 1500);
+};
+
+return (
+  <div className="md-code-block">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-1.5">
+        <Button variant="icon" onClick={() => setCollapsed((c) => !c)}>
+          {collapsed ? <IconChevronRight /> : <IconChevronDown />}
+        </Button>
+        {lang && <span>{lang}</span>}
+        <span>{lineCount} {lineCount === 1 ? "line" : "lines"}</span>
+      </div>
+      <Button variant="icon" onClick={handleCopy}>
+        {copied ? <IconCheck /> : <IconCopy />}
+      </Button>
+    </div>
+    {!collapsed && <pre>{children}</pre>}
+  </div>
+);
+```
+
+See `MarkdownPreview.tsx:56-127`
+
+### Syntax Highlighting
+
+Code blocks are syntax-highlighted using `highlight.js` with GitHub's theme. The theme automatically adapts to your selected appearance:
+
+- **Dark mode** - Uses `github-dark.css` for comfortable night viewing
+- **Light mode** - Uses `github.css` for bright environments
+
+```tsx title="Theme switching" {5}
+useEffect(() => {
+  let link = document.getElementById(HLJS_LINK_ID) as HTMLLinkElement | null;
+  if (!link) {
+    link = document.createElement("link");
+    link.id = HLJS_LINK_ID;
+    link.rel = "stylesheet";
+    document.head.appendChild(link);
+  }
+  link.href = isDark ? githubDarkUrl : githubUrl;
+}, [isDark]);
+```
+
+See `MarkdownPreview.tsx:137-146`
+
+### Language Detection
+
+Specify the language in your code fence for accurate highlighting:
+
+````markdown
+```typescript
+interface User {
+  name: string;
+  email: string;
+}
+```
+````
+
+Supported languages include TypeScript, JavaScript, Python, Rust, Go, Java, C++, and many more via `highlight.js`.
+
+## Example Markdown
+
+Here's a comprehensive example demonstrating all supported features:
+
+````markdown
+# Project Documentation
+
+## Features
+
+- [x] Markdown rendering
+- [x] Syntax highlighting
+- [ ] Export to PDF
+
+## API Reference
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET    | `/users` | List all users |
+| POST   | `/users` | Create user |
+
+## Code Example
+
+```typescript
+interface Config {
+  apiKey: string;
+  baseUrl: string;
+}
+
+const config: Config = {
+  apiKey: process.env.API_KEY,
+  baseUrl: "https://api.example.com"
+};
+```
+
+## Notes
+
+~~Old implementation~~ has been replaced with the new optimized version.
+
+Visit https://github.com/example/repo for more info.
+````
+
+## Empty State
+
+When the editor is empty, the preview displays a helpful prompt:
+
+```tsx title="Empty state handling" {1-5}
+if (!content.trim()) {
+  return (
+    <div className="preview-empty">
+      <p>Start typing Markdown in the editor...</p>
+    </div>
+  );
+}
+```
+
+<Note>
+The Markdown viewer has no error state. Invalid Markdown is rendered as-is, allowing you to see exactly how your content will appear even with malformed syntax.
+</Note>
+
+## Component Props
+
+<ParamField path="content" type="string" required>
+  Raw Markdown text to render
+</ParamField>
+
+<ParamField path="isDark" type="boolean" required>
+  Controls syntax highlighting theme (GitHub vs GitHub Dark)
+</ParamField>
+
+## Related Components
+
+<CardGroup cols={2}>
+  <Card title="JSON Viewer" icon="brackets-curly" href="./json-viewer">
+    View and validate JSON data
+  </Card>
+  <Card title="CSV Viewer" icon="table" href="./csv-viewer">
+    Interactive CSV table with search and SQL
+  </Card>
+</CardGroup>

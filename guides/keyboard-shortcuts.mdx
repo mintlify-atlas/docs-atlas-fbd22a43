@@ -1,0 +1,165 @@
+---
+title: Keyboard Shortcuts
+description: Complete reference of keyboard shortcuts available in File Viewers
+---
+
+File Viewers includes keyboard shortcuts to speed up your workflow.
+
+## Global Shortcuts
+
+These shortcuts work regardless of which panel or mode is active:
+
+| Shortcut | Action | Description |
+|----------|--------|-------------|
+| `⌘O` / `Ctrl+O` | Open file | Opens native file picker dialog |
+| `⌘S` / `Ctrl+S` | Save file | Saves current file if it has a path and dirty flag |
+
+<Note>
+The `⌘O` shortcut is handled by the native menu system (defined in `src-tauri/src/lib.rs`) and triggers the `menu-open-file` event.
+</Note>
+
+## Editor Shortcuts
+
+When the Monaco editor is focused (Markdown or JSON mode with editor visible):
+
+| Shortcut | Action | Description |
+|----------|--------|-------------|
+| All Monaco defaults | Various | Standard Monaco editor shortcuts (see Monaco documentation) |
+| `⌘S` / `Ctrl+S` | Save | Saves current file content |
+
+<Tip>
+Monaco editor includes built-in shortcuts for find, replace, multi-cursor editing, and more. Press `F1` in the editor to see all available commands.
+</Tip>
+
+## CSV Viewer Shortcuts
+
+These shortcuts are available when viewing CSV files:
+
+### Filter Mode
+
+| Shortcut | Action | Description |
+|----------|--------|-------------|
+| `⌘F` / `Ctrl+F` | Focus search | Focuses the filter input and selects all text |
+
+### SQL Mode
+
+| Shortcut | Action | Description |
+|----------|--------|-------------|
+| `⌘F` / `Ctrl+F` | Focus SQL input | Focuses the SQL condition input and selects all text |
+| `⌘↵` / `Ctrl+Enter` | Run query | Executes the current SQL WHERE clause |
+
+<CodeGroup>
+
+```typescript Filter Mode (CsvPreview.tsx:143)
+useEffect(() => {
+  function onKeyDown(e: KeyboardEvent) {
+    if (e.key === "f" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }
+  window.addEventListener("keydown", onKeyDown);
+  return () => window.removeEventListener("keydown", onKeyDown);
+}, []);
+```
+
+```typescript SQL Mode (CsvPreview.tsx:211)
+onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault();
+    onRun(buildQuery());
+  }
+}}
+```
+
+</CodeGroup>
+
+## Cell Editing Shortcuts (CSV)
+
+When editing a cell in CSV mode (after double-clicking):
+
+| Shortcut | Action | Description |
+|----------|--------|-------------|
+| `↵` (Enter) | Commit edit | Saves the edited value to the cell |
+| `Shift+↵` | New line | Inserts a line break in the cell |
+| `Esc` | Cancel edit | Discards changes and closes the editor |
+
+<Info>
+Cell editing is only available in **Filter mode** - it's disabled in **SQL mode** since SQL queries create derived/read-only result sets.
+</Info>
+
+## File Tab Shortcuts
+
+| Shortcut | Action | Description |
+|----------|--------|-------------|
+| Click tab | Switch tab | Activates the clicked file tab |
+| `Enter` or `Space` (on focused tab) | Switch tab | Keyboard navigation for accessibility |
+| Click `×` button | Close tab | Closes the file tab |
+| Click `+` button | New tab | Creates a new empty tab |
+
+<Warning>
+You cannot close the last remaining tab - at least one tab must always be open.
+</Warning>
+
+## Context-Specific Shortcuts
+
+Some shortcuts change behavior based on the active format:
+
+### JSON Mode
+
+No additional shortcuts beyond global shortcuts and Monaco editor shortcuts.
+
+Use toolbar buttons for:
+- **Format** (`⌘F` is not bound to formatting)
+- **Minify**
+
+### Markdown Mode
+
+No additional shortcuts beyond global shortcuts and Monaco editor shortcuts.
+
+## Shortcut Implementation Notes
+
+All application-level shortcuts are implemented using `window.addEventListener("keydown", ...)` in `useEffect` hooks.
+
+<CodeGroup>
+
+```typescript Save Shortcut (App.tsx:393)
+useEffect(() => {
+  function handleKeyDown(e: KeyboardEvent) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+      e.preventDefault();
+      saveFile();
+    }
+  }
+  window.addEventListener("keydown", handleKeyDown);
+  return () => window.removeEventListener("keydown", handleKeyDown);
+}, [saveFile]);
+```
+
+</CodeGroup>
+
+### Platform Detection
+
+Shortcuts automatically adapt to the platform:
+
+- **macOS**: `e.metaKey` (⌘ Command key)
+- **Windows/Linux**: `e.ctrlKey` (Ctrl key)
+
+The code uses `(e.metaKey || e.ctrlKey)` to support both platforms.
+
+## Summary Table
+
+Quick reference of all shortcuts:
+
+| Context | Shortcut | Action |
+|---------|----------|--------|
+| Global | `⌘O` / `Ctrl+O` | Open file |
+| Global | `⌘S` / `Ctrl+S` | Save file |
+| CSV Filter | `⌘F` / `Ctrl+F` | Focus search |
+| CSV SQL | `⌘F` / `Ctrl+F` | Focus SQL input |
+| CSV SQL | `⌘↵` / `Ctrl+Enter` | Run query |
+| CSV Edit | `↵` | Commit cell edit |
+| CSV Edit | `Shift+↵` | New line in cell |
+| CSV Edit | `Esc` | Cancel edit |
+| Editor | Standard Monaco | See Monaco docs |

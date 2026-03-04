@@ -1,0 +1,284 @@
+---
+title: File Operations
+description: Learn how to open, load, and work with files in File Viewers
+---
+
+File Viewers supports multiple ways to open and work with developer files.
+
+## Supported File Types
+
+File Viewers recognizes files by their extension and automatically selects the correct viewer:
+
+| Extension | Format | Viewer |
+|-----------|--------|--------|
+| `.md`, `.markdown` | Markdown | Split editor + live preview |
+| `.mdx` | MDX | Split editor + live preview (treated as Markdown) |
+| `.json` | JSON | Split editor + formatted tree view |
+| `.csv` | CSV | Interactive table with SQL queries |
+
+<Note>
+File format detection is based **solely on the file extension** (case-insensitive). There is no content-based detection.
+</Note>
+
+## Opening Files
+
+There are two ways to open files in File Viewers:
+
+### 1. Native File Picker (⌘O / Ctrl+O)
+
+Use the native operating system file picker:
+
+<Steps>
+  <Step title="Trigger the file picker">
+    - Click **File → Open** in the menu bar, or
+    - Press `⌘O` on macOS / `Ctrl+O` on Windows/Linux
+  </Step>
+  
+  <Step title="Select a file">
+    The dialog filters to show only supported extensions:
+    - `.md`, `.markdown`, `.mdx`
+    - `.json`
+    - `.csv`
+  </Step>
+  
+  <Step title="File loads automatically">
+    The file content loads into a new or existing tab and switches to the appropriate format.
+  </Step>
+</Steps>
+
+<Info>
+The native menu event is implemented in `src-tauri/src/lib.rs` and emits a `menu-open-file` event that the app listens for.
+</Info>
+
+### 2. Drag and Drop
+
+Drag any supported file from your file manager directly into the File Viewers window:
+
+<Steps>
+  <Step title="Drag a file">
+    Drag one or more files from Finder/Explorer/Nautilus
+  </Step>
+  
+  <Step title="See the drop overlay">
+    A blue-tinted overlay appears with the message "Drop files to open"
+  </Step>
+  
+  <Step title="Drop to load">
+    Release the file - the first recognized file loads immediately
+  </Step>
+</Steps>
+
+<Warning>
+If you drag multiple files, **only the first file with a recognized extension** will be opened.
+</Warning>
+
+## File Loading Architecture
+
+### Callback Chain
+
+From `architecture.md:60`, the file loading flow:
+
+```
+openFile()
+  └── openDialog() → path: string
+      └── loadFile(path)
+            ├── ext  = path.split(".").pop()
+            ├── fmt  = EXT_TO_FORMAT[ext] ?? "markdown"
+            ├── text = await readTextFile(path)
+            ├── setContent(prev => ({ ...prev, [fmt]: text }))
+            └── setFormat(fmt)
+```
+
+### Extension Mapping
+
+From `App.tsx:40`:
+
+```typescript
+const EXT_TO_FORMAT: Record<string, Format> = {
+  md: "markdown",
+  markdown: "markdown",
+  mdx: "mdx",
+  json: "json",
+  csv: "csv",
+};
+```
+
+If an extension is not in this map, it defaults to `"markdown"`.
+
+### Two Entry Points
+
+| Entry Point | API Used | Implementation |
+|-------------|----------|----------------|
+| Native menu | `@tauri-apps/api/event` | Listens for `menu-open-file` event |
+| Drag and drop | `getCurrentWebview().onDragDropEvent()` | Handles `enter`, `over`, `drop`, `leave` events |
+
+<CodeGroup>
+
+```typescript Native Menu Listener (App.tsx:442)
+useEffect(() => {
+  let cancelled = false;
+  let unlisten: (() => void) | null = null;
+  listen("menu-open-file", () => openFile()).then((fn) => {
+    if (cancelled) fn();
+    else unlisten = fn;
+  });
+  return () => {
+    cancelled = true;
+    unlisten?.();
+  };
+}, [openFile]);
+```
+
+```typescript Drag and Drop (App.tsx:456)
+useEffect(() => {
+  let cancelled = false;
+  let unlisten: (() => void) | null = null;
+  getCurrentWebview()
+    .onDragDropEvent(async (event) => {
+      const { type } = event.payload;
+      if (type === "enter" || type === "over") {
+        setIsDragOver(true);
+      } else if (type === "drop") {
+        setIsDragOver(false);
+        for (const path of event.payload.paths) {
+          const ext = path.split(".").pop()?.toLowerCase() ?? "";
+          if (EXT_TO_FORMAT[ext]) {
+            await loadFile(path);
+            break;  // Only load first recognized file
+          }
+        }
+      } else {
+        setIsDragOver(false);  // "leave"
+      }
+    })
+    .then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+  return () => {
+    cancelled = true;
+    unlisten?.();
+  };
+}, [loadFile]);
+```
+
+</CodeGroup>
+
+## File Tab Management
+
+When you open a file:
+
+1. **If the file is already open** - switches to that tab and refreshes content
+2. **If the current tab is empty and unsaved** - reuses the current tab
+3. **Otherwise** - creates a new tab
+
+<Tip>
+This smart tab reuse prevents clutter from accumulating empty "New File" tabs.
+</Tip>
+
+### Tab States
+
+Each file tab tracks:
+
+```typescript
+interface FileTab {
+  id: string;           // Unique identifier (tab-1, tab-2, ...)
+  name: string;         // Display name (filename or "New File")
+  format: Format;       // markdown | json | csv | mdx
+  content: string;      // Current editor content
+  previewContent: string; // Debounced content for preview (300ms delay)
+  path?: string;        // File system path (if file-backed)
+  isDirty?: boolean;    // Has unsaved changes
+}
+```
+
+### File Persistence
+
+File-backed tabs (tabs with a `path`) are saved to `localStorage` and restored on app restart:
+
+```typescript
+const STORAGE_SESSION_KEY = "fileviewers.session";
+```
+
+On restore, File Viewers attempts to re-read each file from disk. If a file no longer exists or is inaccessible, that tab is removed.
+
+## Required Tauri Capabilities
+
+From `architecture.md:257`, these permissions are required for file operations:
+
+| Permission | Required For |
+|------------|-------------|
+| `core:default` | Base IPC, window management |
+| `core:event:allow-listen` | Listen to `menu-open-file` event |
+| `core:event:allow-unlisten` | Cleanup event listeners |
+| `dialog:allow-open` | Native file picker (`openDialog`) |
+| `fs:allow-read-text-file` | Read file content with `readTextFile()` |
+| `fs:allow-write-text-file` | Save file content with `writeTextFile()` |
+| `fs:scope-home-recursive` | Access any file under `$HOME` directory |
+
+<Warning>
+`core:default` does **not** include `core:event:allow-listen` in Tauri 2 - it must be declared explicitly in `capabilities/default.json`.
+</Warning>
+
+## File Saving
+
+File Viewers only supports saving files that were opened from disk (have a `path`):
+
+<Steps>
+  <Step title="Edit a file-backed tab">
+    Make changes in the editor - the tab shows a dirty indicator
+  </Step>
+  
+  <Step title="Save with ⌘S / Ctrl+S">
+    Press the save shortcut
+  </Step>
+  
+  <Step title="Content written to disk">
+    Calls `writeTextFile(tab.path, tab.content)` and clears the dirty flag
+  </Step>
+</Steps>
+
+<Info>
+Unsaved "New File" tabs (without a `path`) cannot be saved - there is no "Save As" dialog. This feature may be added in the future.
+</Info>
+
+## Error Handling
+
+If a file cannot be read (permissions, file deleted, etc.), the tab is removed from the session and not loaded.
+
+From `App.tsx:337`:
+
+```typescript
+(async () => {
+  const toRemove: string[] = [];
+  for (const tab of pathTabs) {
+    try {
+      await loadFileRef.current(tab.path as string);
+    } catch {
+      toRemove.push(tab.id);  // Mark for removal
+    }
+  }
+  if (toRemove.length) {
+    setTabs((prev) => {
+      const remaining = prev.filter((t) => !toRemove.includes(t.id));
+      return remaining.length ? remaining : [createTab()];
+    });
+  }
+})();
+```
+
+## Browser Drag-and-Drop vs Tauri
+
+<Warning>
+File Viewers uses the **Tauri v2 Webview API** for drag-and-drop, not the browser's native `dragover`/`drop` events.
+
+Browser drag events don't fire for OS-level file drops into a Tauri window.
+</Warning>
+
+The Tauri API provides:
+- `enter` - File drag enters the window
+- `over` - File is being dragged over the window
+- `drop` - File is dropped (provides `event.payload.paths`)
+- `leave` - File drag leaves the window
+
+This allows the blue drop overlay to appear and disappear correctly.

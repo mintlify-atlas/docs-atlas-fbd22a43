@@ -1,0 +1,446 @@
+---
+title: Preview Components
+description: Format-specific preview components for Markdown, JSON, and CSV rendering
+---
+
+## Overview
+
+The preview system consists of a router component (`PreviewPanel`) that delegates to format-specific preview components based on the current file type.
+
+---
+
+## PreviewPanel (Router)
+
+Format router that renders the correct preview sub-component based on `format`, or `EmptyState` when content is blank.
+
+**Location:** `src/components/PreviewPanel.tsx`
+
+### Props
+
+<ParamField path="content" type="string" required>
+  Editor text content to render
+</ParamField>
+
+<ParamField path="format" type="Format" required>
+  File format type: `"markdown"` | `"json"` | `"csv"` | `"mdx"`
+</ParamField>
+
+<ParamField path="isDark" type="boolean" required>
+  Dark mode flag forwarded to `JsonPreview` and `MarkdownPreview`
+</ParamField>
+
+<ParamField path="onOpenFile" type="() => void" required>
+  Callback forwarded to `EmptyState` when the "Open File" button is clicked
+</ParamField>
+
+<ParamField path="onContentChange" type="(content: string) => void">
+  Optional callback for content edits (used by CSV editing features)
+</ParamField>
+
+### Routing Logic
+
+The component implements a simple waterfall routing:
+
+```tsx
+if (!content.trim()) {
+  return <EmptyState onOpenFile={onOpenFile} />;
+}
+
+if (format === "markdown") {
+  return <MarkdownPreview content={content} isDark={isDark} />;
+}
+
+if (format === "json") {
+  return <JsonPreview content={content} isDark={isDark} />;
+}
+
+// Default: CSV
+return <CsvPreview content={content} onContentChange={onContentChange} />;
+```
+
+<Info>
+The component is wrapped with `React.memo` for performance optimization — re-renders only when props change.
+</Info>
+
+---
+
+## MarkdownPreview
+
+Renders GitHub Flavored Markdown with syntax-highlighted code blocks.
+
+**Location:** `src/components/MarkdownPreview.tsx`
+
+### Props
+
+<ParamField path="content" type="string" required>
+  Raw Markdown text to render
+</ParamField>
+
+<ParamField path="isDark" type="boolean" required>
+  Theme selector for code block syntax highlighting
+</ParamField>
+
+### Dependencies
+
+| Library | Purpose |
+|---------|--------|
+| `react-markdown` | Core Markdown → React renderer |
+| `remark-gfm` | GFM plugin: tables, strikethrough, task lists, autolinks |
+| `rehype-highlight` | Wraps code blocks with `highlight.js` class names |
+| `highlight.js` | Syntax highlighting themes (github-dark.css / github.css) |
+
+### Features
+
+<AccordionGroup>
+  <Accordion title="GitHub Flavored Markdown">
+    Supports all GFM features:
+    - **Tables** with alignment
+    - **Strikethrough** using `~~text~~`
+    - **Task lists** with `- [ ]` and `- [x]`
+    - **Autolinks** for URLs and email addresses
+  </Accordion>
+
+  <Accordion title="Syntax Highlighting">
+    Code blocks are highlighted using `highlight.js`:
+    - Theme switches between `github.css` (light) and `github-dark.css` (dark)
+    - Theme stylesheet is dynamically injected into `<head>` based on `isDark` prop
+    - Supports 190+ languages automatically detected by highlight.js
+  </Accordion>
+
+  <Accordion title="Collapsible Code Blocks">
+    Custom `CodeBlock` component adds interactive features:
+    - **Collapse/Expand** button with chevron icon
+    - **Language badge** (uppercase, 10px font)
+    - **Line count** indicator
+    - **Copy button** with success feedback (✓ for 1.5s)
+    
+    ```tsx
+    // CodeBlock toolbar layout:
+    // [▼] [TYPESCRIPT] [24 lines]     [📋]
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Usage Example
+
+```tsx
+import { MarkdownPreview } from "@/components/MarkdownPreview";
+
+function Preview({ content, isDark }) {
+  return (
+    <div className="preview-panel">
+      <MarkdownPreview content={content} isDark={isDark} />
+    </div>
+  );
+}
+```
+
+### Empty State
+
+When `content.trim()` is empty, shows:
+
+```
+Start typing Markdown in the editor...
+```
+
+---
+
+## JsonPreview
+
+Renders an interactive JSON tree viewer with collapse/expand support.
+
+**Location:** `src/components/JsonPreview.tsx`
+
+### Props
+
+<ParamField path="content" type="string" required>
+  Raw JSON text to parse and display
+</ParamField>
+
+<ParamField path="isDark" type="boolean" required>
+  Selects `darkStyles` or `defaultStyles` from `react-json-view-lite`
+</ParamField>
+
+### Features
+
+<AccordionGroup>
+  <Accordion title="JSON Parsing">
+    - Attempts `JSON.parse()` on the content
+    - On success: renders interactive tree view
+    - On error: displays error badge + message
+  </Accordion>
+
+  <Accordion title="Tree View">
+    Uses `react-json-view-lite` with:
+    - `shouldExpandNode={allExpanded}` — tree starts fully expanded
+    - Theme adapts to `isDark` prop
+    - Supports nested objects and arrays
+    - Click to collapse/expand nodes
+  </Accordion>
+
+  <Accordion title="Error State">
+    When JSON parsing fails:
+    
+    ```
+    ┌─────────────────────────────┐
+    │  [Invalid JSON]              │
+    │  Unexpected token } in JSON  │
+    └─────────────────────────────┘
+    ```
+    
+    Displays:
+    - Red "Invalid JSON" badge (`.json-error-badge`)
+    - Error message in monospace (`.json-error-message`)
+  </Accordion>
+</AccordionGroup>
+
+### Usage Example
+
+```tsx
+import { JsonPreview } from "@/components/JsonPreview";
+
+function Preview({ content, isDark }) {
+  return (
+    <div className="preview-panel">
+      <JsonPreview content={content} isDark={isDark} />
+    </div>
+  );
+}
+```
+
+### Empty State
+
+When `content.trim()` is empty, shows:
+
+```
+Start typing JSON in the editor...
+```
+
+---
+
+## CsvPreview
+
+Full-featured CSV viewer built on TanStack Table v8. Shown full-width (no editor panel) when the CSV tab is active.
+
+**Location:** `src/components/CsvPreview.tsx`
+
+### Props
+
+<ParamField path="content" type="string" required>
+  Raw CSV text to parse and display
+</ParamField>
+
+<ParamField path="onContentChange" type="(content: string) => void">
+  Optional callback for handling cell edits (receives updated CSV string)
+</ParamField>
+
+### Features
+
+| Feature | Implementation |
+|---------|---------------|
+| **Parsing** | `papaparse` with `skipEmptyLines: true` |
+| **Skeleton loading** | `useDeferredValue` — shows skeleton while large data parses |
+| **Column resize** | `columnResizeMode: "onChange"` with drag handles |
+| **Sort** | Click header to cycle: unsorted → asc → desc |
+| **Search mode** | Debounced (300ms) `globalFilter` via `SearchInput` |
+| **SQL mode** | `alasql` — user types WHERE conditions; query runs on ⌘↵ or Run button |
+| **Cell selection** | Tracks `{ row, col, value }` — row index survives sort/filter |
+| **Cell editing** | Double-click cell to edit in popover (search mode only) |
+| **Status bar** | 3-zone bar: row count, cell coords + length, encoding + line ending |
+| **⌘F shortcut** | Focuses active input (search or SQL condition) |
+
+### Query Modes
+
+<Tabs>
+  <Tab title="Search Mode">
+    **Toolbar:**
+    ```
+    [🔍 Filter] [SQL]  [Search input...]
+    ```
+    
+    - Debounced global text filter (300ms)
+    - Searches all columns
+    - ⌘F focuses search input
+    - Double-click cells to edit
+  </Tab>
+  
+  <Tab title="SQL Mode">
+    **Toolbar:**
+    ```
+    [Filter] [💾 SQL]  [WHERE condition...] [⌘↵ Run]
+    ```
+    
+    - User types WHERE clause only
+    - Query executes on ⌘↵ or Run button
+    - Prefix `SELECT * FROM csv WHERE` is locked/read-only
+    - Displays SQL errors below toolbar
+    - Cell editing disabled in SQL mode
+  </Tab>
+</Tabs>
+
+### Status Bar Layout
+
+```
+left (flex:1)          center (flex:1)         right (flex:1)
+────────────────────────────────────────────────────────────
+706 rows × 8 cols   |  28:1 (67 chars)    |  UTF-8   LF
+```
+
+- **Left:** Total or filtered row count × column count
+- **Center:** `row:col (N chars)` — only visible when cell is selected
+- **Right:** Encoding chip + line-ending chip (auto-detected)
+
+### Sub-Components
+
+<AccordionGroup>
+  <Accordion title="SearchInput">
+    Owns its own `value` state so keystrokes don't re-render the parent table.
+    
+    **Props:**
+    - `onFilter: (value: string) => void` — called after 300ms debounce
+    
+    **Features:**
+    - ⌘F/Ctrl+F focuses and selects input
+    - Debounced updates prevent table re-renders on every keystroke
+  </Accordion>
+
+  <Accordion title="SqlInput">
+    Owns its own `condition` state; builds and executes SQL query.
+    
+    **Props:**
+    - `onRun: (query: string) => void` — called on ⌘↵ or Run button
+    
+    **Features:**
+    - ⌘F/Ctrl+F focuses and selects input
+    - ⌘↵ triggers query execution
+    - Displays locked `SELECT * FROM csv WHERE` prefix
+    - Placeholder: `age > 30 AND name = 'Alice'  (⌘↵)`
+  </Accordion>
+
+  <Accordion title="CsvSkeleton">
+    Deterministic skeleton table (6 cols × 12 rows) shown via `useDeferredValue`.
+    
+    **Features:**
+    - Fixed width arrays prevent layout shift
+    - Displays while deferred content differs from live content
+    - Skipped when a cell is being edited to avoid flicker
+  </Accordion>
+</AccordionGroup>
+
+### Usage Example
+
+```tsx
+import { CsvPreview } from "@/components/CsvPreview";
+
+function Preview({ content, onContentChange }) {
+  return (
+    <div className="preview-panel">
+      <CsvPreview
+        content={content}
+        onContentChange={onContentChange}
+      />
+    </div>
+  );
+}
+```
+
+### Empty State
+
+When `content.trim()` is empty, shows:
+
+```
+Start typing CSV in the editor...
+```
+
+---
+
+## EmptyState
+
+Welcome screen shown in the preview panel when no content has been loaded.
+
+**Location:** `src/components/EmptyState.tsx`
+
+### Props
+
+<ParamField path="onOpenFile" type="() => void" required>
+  Callback fired when the "Open File" button is clicked
+</ParamField>
+
+### Layout
+
+The component displays a centered welcome screen:
+
+```
+      [📝 Markdown icon]
+   [{ Braces icon] [📊 Table icon]
+
+   Open File          ⌘ O
+   Drop a file anywhere  ↓
+```
+
+**Visual elements:**
+- Ghost brand mark: trio of format icons (very low opacity)
+- Action list with keyboard shortcuts
+- "Open File" uses `<Button variant="link">`
+
+### Kbd Sub-Component
+
+Internal component for keyboard shortcut labels:
+
+```tsx
+function Kbd({ children }: { children: React.ReactNode }) {
+  return <span className="es-kbd">{children}</span>;
+}
+```
+
+Styled with `.es-kbd` class for consistent key appearance.
+
+### Usage Example
+
+```tsx
+import { EmptyState } from "@/components/EmptyState";
+
+function Preview({ content, onOpenFile }) {
+  if (!content.trim()) {
+    return (
+      <div className="preview-panel">
+        <EmptyState onOpenFile={onOpenFile} />
+      </div>
+    );
+  }
+  
+  // ... render format-specific preview
+}
+```
+
+---
+
+## Performance Notes
+
+<Tip>
+**PreviewPanel Memoization:** The router component uses `React.memo` to prevent unnecessary re-renders.
+</Tip>
+
+<Tip>
+**CSV Input Isolation:** `SearchInput` and `SqlInput` own their input state internally. Keystrokes only re-render those small components — the `useReactTable` hook in the parent never runs on every keystroke.
+</Tip>
+
+<Tip>
+**Deferred Parsing:** CSV parsing uses `useDeferredValue` to show a skeleton while processing large files without blocking the UI.
+</Tip>
+
+---
+
+## Error Handling
+
+<Warning>
+**MarkdownPreview:** No error state — invalid Markdown renders as plain text.
+</Warning>
+
+<Warning>
+**JsonPreview:** Catches `JSON.parse()` errors and displays user-friendly error message.
+</Warning>
+
+<Warning>
+**CsvPreview:** Displays papaparse errors when CSV parsing fails. SQL errors shown in red banner below toolbar.
+</Warning>

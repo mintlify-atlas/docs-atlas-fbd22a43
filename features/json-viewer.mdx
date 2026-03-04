@@ -1,0 +1,304 @@
+---
+title: "JSON Viewer"
+description: "Interactive JSON tree viewer with format/minify toolbar actions and error handling"
+---
+
+## Overview
+
+The JSON viewer renders structured JSON data as an interactive, collapsible tree. It includes toolbar actions for formatting and minifying JSON, plus robust error handling for invalid syntax. The tree viewer adapts to your theme preference automatically.
+
+## Library Used
+
+The JSON preview is powered by a lightweight, theme-aware tree component:
+
+<Card title="react-json-view-lite" icon="code-branch">
+  Lightweight JSON tree viewer with collapse/expand support and built-in dark mode
+</Card>
+
+### Implementation
+
+The component parses JSON content and displays it with the appropriate theme:
+
+```tsx title="JsonPreview.tsx" {1-7}
+import {
+  allExpanded,
+  darkStyles,
+  defaultStyles,
+  JsonView,
+} from "react-json-view-lite";
+import "react-json-view-lite/dist/index.css";
+
+export function JsonPreview({ content, isDark }: JsonPreviewProps) {
+  let parsed: unknown = null;
+  let error: string | null = null;
+
+  try {
+    parsed = JSON.parse(content);
+  } catch (e) {
+    error = (e as Error).message;
+  }
+
+  if (error) {
+    return (
+      <div className="json-error">
+        <div className="json-error-badge">Invalid JSON</div>
+        <pre className="json-error-message">{error}</pre>
+      </div>
+    );
+  }
+
+  return (
+    <div className="json-view-container">
+      <JsonView
+        data={parsed as object}
+        shouldExpandNode={allExpanded}
+        style={isDark ? darkStyles : defaultStyles}
+      />
+    </div>
+  );
+}
+```
+
+See the full implementation in `JsonPreview.tsx:1-51`
+
+## Toolbar Actions
+
+When the JSON tab is active and content is present, two toolbar actions appear:
+
+### Format
+
+Beautifies minified JSON with proper indentation:
+
+<CodeGroup>
+```json title="Before (minified)"
+{"name":"Alice","age":30,"active":true}
+```
+
+```json title="After (formatted)"
+{
+  "name": "Alice",
+  "age": 30,
+  "active": true
+}
+```
+</CodeGroup>
+
+### Minify
+
+Compresses formatted JSON by removing whitespace:
+
+<CodeGroup>
+```json title="Before (formatted)"
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "Alice"
+    },
+    {
+      "id": 2,
+      "name": "Bob"
+    }
+  ]
+}
+```
+
+```json title="After (minified)"
+{"users":[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]}
+```
+</CodeGroup>
+
+<Note>
+These actions are implemented in the parent `App.tsx` component and operate on the editor content, not the preview.
+</Note>
+
+## Tree Viewer Features
+
+### Collapse/Expand
+
+All nodes start fully expanded by default using the `allExpanded` strategy:
+
+```tsx title="Tree expansion" {2}
+<JsonView
+  data={parsed as object}
+  shouldExpandNode={allExpanded}
+  style={isDark ? darkStyles : defaultStyles}
+/>
+```
+
+Click any object or array to toggle its children's visibility.
+
+### Theme Support
+
+The viewer automatically adapts to your theme preference:
+
+- **Dark mode** - Uses `darkStyles` with high contrast colors
+- **Light mode** - Uses `defaultStyles` with a clean, bright palette
+
+```tsx title="Theme switching" {3}
+<JsonView
+  data={parsed as object}
+  shouldExpandNode={allExpanded}
+  style={isDark ? darkStyles : defaultStyles}
+/>
+```
+
+See `JsonPreview.tsx:43-47`
+
+### Data Type Visualization
+
+The tree viewer applies distinct styling to different JSON types:
+
+| Type | Example | Visual Style |
+|------|---------|-------------|
+| String | `"hello"` | Green with quotes |
+| Number | `42`, `3.14` | Blue |
+| Boolean | `true`, `false` | Purple |
+| Null | `null` | Gray italic |
+| Object | `{ ... }` | Braces with key count |
+| Array | `[ ... ]` | Brackets with item count |
+
+## Error Handling
+
+When invalid JSON is detected, the viewer displays a detailed error message:
+
+```tsx title="Error state" {6-9}
+try {
+  parsed = JSON.parse(content);
+} catch (e) {
+  error = (e as Error).message;
+}
+
+if (error) {
+  return (
+    <div className="json-error">
+      <div className="json-error-badge">Invalid JSON</div>
+      <pre className="json-error-message">{error}</pre>
+    </div>
+  );
+}
+```
+
+See `JsonPreview.tsx:26-39`
+
+### Error Examples
+
+<AccordionGroup>
+  <Accordion title="Missing comma">
+    ```json
+    {
+      "name": "Alice"
+      "age": 30
+    }
+    ```
+    **Error:** `Unexpected string in JSON at position 20`
+  </Accordion>
+
+  <Accordion title="Trailing comma">
+    ```json
+    {
+      "items": [1, 2, 3,]
+    }
+    ```
+    **Error:** `Unexpected token ] in JSON at position 18`
+  </Accordion>
+
+  <Accordion title="Unquoted keys">
+    ```json
+    {
+      name: "Alice",
+      age: 30
+    }
+    ```
+    **Error:** `Unexpected token n in JSON at position 2`
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+JSON parsing errors are displayed exactly as returned by `JSON.parse()`. The error messages include the character position where parsing failed.
+</Warning>
+
+## Example JSON
+
+Here's a comprehensive example demonstrating nested objects and arrays:
+
+```json title="User data with nested structures"
+{
+  "user": {
+    "id": 1001,
+    "name": "Alice Johnson",
+    "email": "alice@example.com",
+    "active": true,
+    "roles": ["admin", "editor"],
+    "metadata": {
+      "createdAt": "2024-01-15T10:30:00Z",
+      "lastLogin": "2024-03-04T08:45:00Z",
+      "loginCount": 247
+    },
+    "preferences": {
+      "theme": "dark",
+      "notifications": true,
+      "language": "en"
+    }
+  },
+  "permissions": [
+    {
+      "resource": "posts",
+      "actions": ["read", "write", "delete"]
+    },
+    {
+      "resource": "users",
+      "actions": ["read"]
+    }
+  ]
+}
+```
+
+## Empty State
+
+When the editor is empty, the preview displays a helpful prompt:
+
+```tsx title="Empty state handling" {1-5}
+if (!content.trim()) {
+  return (
+    <div className="preview-empty">
+      <p>Start typing JSON in the editor...</p>
+    </div>
+  );
+}
+```
+
+See `JsonPreview.tsx:15-21`
+
+## Component Props
+
+<ParamField path="content" type="string" required>
+  Raw JSON text to parse and render
+</ParamField>
+
+<ParamField path="isDark" type="boolean" required>
+  Controls tree viewer theme (darkStyles vs defaultStyles)
+</ParamField>
+
+## Usage in Parent Component
+
+The JSON viewer is rendered conditionally in `PreviewPanel.tsx`:
+
+```tsx title="Format routing"
+{
+  format === "json" && (
+    <JsonPreview content={content} isDark={isDark} />
+  )
+}
+```
+
+## Related Components
+
+<CardGroup cols={2}>
+  <Card title="Markdown Viewer" icon="markdown" href="./markdown-viewer">
+    Render GitHub Flavored Markdown
+  </Card>
+  <Card title="CSV Viewer" icon="table" href="./csv-viewer">
+    Interactive CSV table with search and SQL
+  </Card>
+</CardGroup>

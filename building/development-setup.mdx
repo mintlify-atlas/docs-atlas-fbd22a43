@@ -1,0 +1,169 @@
+---
+title: Development Setup
+description: Set up your local development environment for File Viewers
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Rust** (stable toolchain) - [Install Rust](https://www.rust-lang.org/tools/install)
+- **Bun** `>= 1.0` - [Install Bun](https://bun.sh)
+
+### Platform Requirements
+
+File Viewers supports development on:
+
+- **macOS** 12+
+- **Linux** (GTK-based distributions)
+- **Windows** 10+
+
+## Getting Started
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the File Viewers repository to your local machine:
+    
+    ```bash
+    git clone https://github.com/yourusername/file-viewers.git
+    cd file-viewers/desktop-app
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    Install all required frontend and Tauri dependencies:
+    
+    ```bash
+    bun install
+    ```
+    
+    This will install:
+    - React 19 + TypeScript
+    - Tauri 2 CLI and API packages
+    - Vite 7 + Tailwind CSS 4
+    - Monaco Editor, react-markdown, and other UI libraries
+  </Step>
+
+  <Step title="Start development server">
+    Launch the development server with hot-reload:
+    
+    ```bash
+    bun run tauri dev
+    ```
+    
+    This command:
+    - Starts the Vite dev server on `http://localhost:1420`
+    - Compiles the Rust backend
+    - Opens the Tauri window with DevTools enabled
+    - Enables hot module replacement (HMR) for frontend changes
+  </Step>
+</Steps>
+
+## Development Commands
+
+### Type Checking
+
+Run TypeScript type checking without emitting files:
+
+```bash
+bunx tsc --noEmit
+```
+
+This is useful for catching type errors before building or during CI/CD pipelines.
+
+### Build Configuration
+
+The development environment is configured in `src-tauri/tauri.conf.json`:
+
+```json
+"build": {
+  "beforeDevCommand": "bun run dev",
+  "devUrl": "http://localhost:1420",
+  "beforeBuildCommand": "bun run build",
+  "frontendDist": "../dist"
+}
+```
+
+- `beforeDevCommand` runs the Vite dev server
+- `devUrl` points to the local development server
+- Frontend source is served from Vite during development
+
+## Project Structure
+
+Understanding the codebase layout:
+
+```
+desktop-app/
+├── src/
+│   ├── App.tsx                 # Root component, all top-level state
+│   ├── App.css                 # Styles + CSS design tokens
+│   ├── main.tsx                # Entry point; Monaco local-bundle setup
+│   └── components/
+│       ├── EditorPanel.tsx     # Monaco editor wrapper
+│       ├── PreviewPanel.tsx    # Format router + empty state gate
+│       ├── MarkdownPreview.tsx # react-markdown renderer
+│       ├── JsonPreview.tsx     # react-json-view-lite renderer
+│       ├── CsvPreview.tsx      # TanStack Table + SQL mode
+│       ├── EmptyState.tsx      # Welcome screen
+│       └── ui/                 # Button, Input, Textarea primitives
+├── src-tauri/
+│   ├── src/lib.rs              # Tauri setup; native OS menu
+│   ├── tauri.conf.json         # App configuration
+│   └── capabilities/
+│       └── default.json        # Tauri permission grants
+└── docs/                       # Architecture + component reference
+```
+
+### Key Directories
+
+- **`src/`** - React frontend source code
+- **`src-tauri/`** - Rust backend and Tauri configuration
+- **`src-tauri/target/`** - Rust build artifacts (gitignored)
+- **`dist/`** - Vite build output (gitignored)
+- **`docs/`** - Architecture and component documentation
+
+## Tech Stack Overview
+
+| Layer | Library |
+|-------|---------||
+| App shell | Tauri 2 |
+| UI | React 19 + TypeScript |
+| Build | Vite 7 + Tailwind CSS 4 |
+| Editor | Monaco Editor (local bundle, no CDN) |
+| Markdown | react-markdown + remark-gfm + rehype-highlight |
+| JSON | react-json-view-lite |
+| CSV | TanStack Table v8 + PapaParse |
+| CSV SQL | alasql (in-memory SQL on `csv` table) |
+| UI primitives | Base UI (`@base-ui/react`) |
+
+## Development Workflow
+
+1. **Make changes** to React components in `src/` or Rust code in `src-tauri/src/`
+2. **Frontend changes** auto-reload via HMR
+3. **Rust changes** require recompiling - the Tauri dev server will restart automatically
+4. **Test changes** in the Tauri window with DevTools open
+5. **Run type checking** before committing: `bunx tsc --noEmit`
+
+## Troubleshooting
+
+### Port Already in Use
+
+If port 1420 is already in use, modify `devUrl` in `src-tauri/tauri.conf.json` and update the Vite config.
+
+### Rust Compilation Errors
+
+Ensure you have the latest stable Rust toolchain:
+
+```bash
+rustup update stable
+```
+
+### Missing System Dependencies (Linux)
+
+On Linux, you may need to install WebKit and GTK development libraries. See the [Platform Support](/building/platform-support) page for details.
+
+## Next Steps
+
+- Learn about [Production Builds](/building/production-build)
+- Review [Platform Support](/building/platform-support) for platform-specific details
+- Read the [Architecture documentation](https://github.com/yourusername/file-viewers/blob/main/desktop-app/docs/architecture.md)

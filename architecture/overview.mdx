@@ -1,0 +1,225 @@
+---
+title: Architecture Overview
+description: High-level overview of File Viewers architecture, tech stack, and design decisions
+---
+
+## Introduction
+
+File Viewers is a lightweight desktop application for viewing and editing Markdown, JSON, and CSV files. Built with Tauri 2, it combines a Rust backend with a modern React frontend to deliver a fast, native experience across macOS, Linux, and Windows.
+
+## Tech Stack
+
+### Frontend
+
+| Technology | Version | Purpose |
+|------------|---------|----------|
+| **React** | 19.1.0 | UI framework with hooks-based state management |
+| **TypeScript** | 5.8.3 | Type-safe component development |
+| **Vite** | 7.0.4 | Fast build tool and dev server |
+| **Tailwind CSS** | 4.2.1 | Utility-first styling framework |
+| **Monaco Editor** | @monaco-editor/react 4.7.0 | Code editor with syntax highlighting |
+
+### Backend
+
+| Technology | Purpose |
+|------------|----------|
+| **Tauri** | v2 | Rust-powered native window management and system APIs |
+| **Rust** | System-level file I/O, menu integration, drag-and-drop |
+
+### Key Libraries
+
+- **@base-ui/react** - Headless UI primitives (Button, Input, Tabs)
+- **react-resizable-panels** - Draggable split pane layout
+- **TanStack Table** v8 - High-performance CSV data grid
+- **react-markdown** + **remark-gfm** - GitHub Flavored Markdown rendering
+- **papaparse** - CSV parsing
+- **alasql** - SQL query engine for CSV
+
+## Project Structure
+
+```
+desktop-app/
+├── src/                      # React frontend
+│   ├── App.tsx              # Root component + state management
+│   ├── main.tsx             # React entry point + Monaco config
+│   ├── components/
+│   │   ├── EditorPanel.tsx
+│   │   ├── PreviewPanel.tsx
+│   │   ├── MarkdownPreview.tsx
+│   │   ├── JsonPreview.tsx
+│   │   ├── CsvPreview.tsx
+│   │   ├── EmptyState.tsx
+│   │   └── ui/              # Reusable primitives
+│   │       ├── Button.tsx
+│   │       ├── Input.tsx
+│   │       └── Textarea.tsx
+│   └── App.css              # Global styles + CSS variables
+├── src-tauri/               # Rust backend
+│   ├── src/
+│   │   └── lib.rs           # Tauri app setup + menu config
+│   ├── capabilities/        # Permission system
+│   │   └── default.json
+│   ├── icons/               # App icons (macOS, Linux, Windows)
+│   └── tauri.conf.json      # Tauri configuration
+├── vite.config.ts           # Vite bundler config
+├── tsconfig.json            # TypeScript compiler options
+└── package.json             # Dependencies + scripts
+```
+
+## Key Design Decisions
+
+### 1. Controlled Component Pattern
+
+All state lives in `App.tsx`. Child components are pure and receive data + callbacks via props. This creates a unidirectional data flow:
+
+```tsx
+App (state owner)
+  └─→ EditorPanel (controlled)
+        onChange(newValue) ─→ App updates state
+  └─→ PreviewPanel (receives derived state)
+```
+
+See [State Management](/architecture/state-management) for details.
+
+### 2. CSV Full-Width Mode
+
+When the CSV tab is active, the editor is hidden and the preview fills the entire workspace. This maximizes table visibility for large datasets:
+
+```tsx
+{format === "csv" ? (
+  <PreviewPanel />  // 100% width
+) : (
+  <Group>           // 50/50 split
+    <Panel><EditorPanel /></Panel>
+    <Separator />
+    <Panel><PreviewPanel /></Panel>
+  </Group>
+)}
+```
+
+See [Component Hierarchy](/architecture/component-hierarchy) for the full tree.
+
+### 3. Local Monaco Bundle
+
+Monaco Editor and all language workers are bundled locally by Vite at build time. No CDN requests are made at runtime:
+
+```ts
+// main.tsx
+import * as monaco from "monaco-editor";
+import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
+import JsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
+
+window.MonacoEnvironment = {
+  getWorker(_: unknown, label: string) {
+    if (label === "json") return new JsonWorker();
+    return new EditorWorker();
+  },
+};
+
+loader.config({ monaco });
+```
+
+This ensures the app works completely offline.
+
+### 4. Performance-First CSV Input
+
+Search and SQL inputs own their own state internally. Keystrokes only re-render those small components, not the entire table:
+
+```
+SearchInput (owns value)  →  debounced 300ms  →  onFilter(settledValue)
+SqlInput (owns condition) →  only on ⌘↵/Run   →  onRun(fullQuery)
+```
+
+This prevents expensive TanStack Table recalculations on every keystroke.
+
+### 5. Tailwind-Only Styling
+
+All UI components use Tailwind utility classes exclusively. No raw CSS (except global theme variables). Variants are managed with `class-variance-authority`:
+
+```tsx
+const buttonVariants = cva("base classes", {
+  variants: {
+    variant: {
+      toolbar: "toolbar classes",
+      ghost: "ghost classes",
+      outline: "outline classes",
+    },
+  },
+});
+```
+
+### 6. Tauri v2 Drag-and-Drop
+
+File drag-and-drop uses the Tauri v2 Webview API, not browser events:
+
+```ts
+getCurrentWebview().onDragDropEvent(async (event) => {
+  if (event.payload.type === "drop") {
+    for (const path of event.payload.paths) {
+      if (isSupportedExtension(path)) {
+        await loadFile(path);
+        break;
+      }
+    }
+  }
+});
+```
+
+See [File Loading](/architecture/file-loading) for the complete flow.
+
+## Extension to Format Mapping
+
+| Extension | Format | Monaco Language | Preview Component |
+|-----------|--------|-----------------|-------------------|
+| `.md`, `.markdown` | `"markdown"` | `"markdown"` | `MarkdownPreview` |
+| `.json` | `"json"` | `"json"` | `JsonPreview` |
+| `.csv` | `"csv"` | `"plaintext"` | `CsvPreview` |
+
+## Theme System
+
+The app supports System, Light, and Dark themes:
+
+1. User selects preference from dropdown (stored in `localStorage`)
+2. `isDark` is computed:
+   ```ts
+   const isDark = themePref === "dark" || (themePref === "system" && systemDark);
+   ```
+3. A `useEffect` applies `data-theme="dark"` or `data-theme="light"` to `<html>`
+4. CSS variables in `App.css` respond to the `[data-theme]` attribute
+
+When `themePref === "system"`, a MediaQueryList listener tracks OS appearance changes.
+
+### Theme Propagation
+
+Components that need explicit theme awareness:
+
+- **EditorPanel**: Monaco theme (`"vs-dark"` vs `"vs"`)
+- **JsonPreview**: `react-json-view-lite` styles (`darkStyles` vs `defaultStyles`)
+
+Markdown and CSV previews follow CSS variables automatically.
+
+## Build Output
+
+Built with `bun run tauri build`:
+
+| Platform | Bundle Format | Artifacts |
+|----------|---------------|------------|
+| macOS | `.app`, `.dmg` | Universal binary (arm64 + x86_64) |
+| Linux | `.deb`, `.AppImage` | Debian package, portable AppImage |
+| Windows | `.msi`, `.exe` | MSI installer, NSIS setup |
+
+All artifacts are produced in `src-tauri/target/release/bundle/`.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Component Hierarchy" icon="diagram-project" href="/architecture/component-hierarchy">
+    Explore the component tree and parent-child relationships
+  </Card>
+  <Card title="State Management" icon="database" href="/architecture/state-management">
+    Learn how state flows through the application
+  </Card>
+  <Card title="File Loading" icon="file-import" href="/architecture/file-loading">
+    Understand the file loading and extension mapping flow
+  </Card>
+</CardGroup>

@@ -1,0 +1,98 @@
+---
+title: Introduction
+description: A cross-platform desktop app for viewing and editing Markdown, JSON, and CSV files
+---
+
+## What is File Viewers?
+
+File Viewers is a lightweight, cross-platform desktop application built with Tauri 2 that provides a unified interface for viewing and editing **Markdown**, **JSON**, and **CSV** files. It combines a Monaco-powered code editor with format-specific preview panels, offering a seamless development and data exploration experience.
+
+## Why File Viewers?
+
+Whether you're writing documentation, inspecting API responses, or analyzing datasets, File Viewers provides specialized tools for each format:
+
+- **Live preview** as you type (Markdown and JSON)
+- **GitHub Flavored Markdown** rendering with syntax-highlighted code blocks
+- **Interactive JSON tree viewer** with expand/collapse controls
+- **Advanced CSV table** with sorting, filtering, and SQL query support
+- **Native OS integration** via drag-and-drop and keyboard shortcuts (⌘O/Ctrl+O)
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Multi-Format Support" icon="files">
+    View and edit `.md`, `.json`, and `.csv` files with format-specific previews and editing tools
+  </Card>
+  
+  <Card title="Advanced CSV Viewer" icon="table">
+    Sort, filter, and query CSV data with SQL. Includes cell selection, column resizing, and auto-detected encoding
+  </Card>
+  
+  <Card title="Monaco Editor" icon="code">
+    Full-featured code editor with syntax highlighting, powered by the same engine as VS Code
+  </Card>
+  
+  <Card title="Native Performance" icon="bolt">
+    Built with Tauri 2 for fast startup times and minimal memory footprint. All assets bundled locally—no CDN calls
+  </Card>
+</CardGroup>
+
+### CSV Viewer Highlights
+
+The CSV mode includes production-grade features:
+
+- **SQL query mode**: Run `WHERE` conditions against your CSV data using in-memory SQL (powered by alasql)
+- **Search with debouncing**: Global filter with 300ms debounce for smooth performance
+- **Column management**: Resize columns, sort by clicking headers (unsorted → asc → desc)
+- **Status bar**: Shows row/column count, selected cell coordinates, encoding (UTF-8), and line endings (LF/CRLF)
+
+<Note>
+SQL mode registers your CSV data as a table named `csv`. Type conditions like `age > 25 AND city = 'NYC'` and press ⌘↵ to execute.
+</Note>
+
+## Platform Requirements
+
+<CodeGroup>
+```bash macOS
+# Requires macOS 12 (Monterey) or later
+# Both Intel and Apple Silicon supported
+```
+
+```bash Linux
+# GTK-based distributions
+# Ubuntu 20.04+, Fedora 35+, or equivalent
+```
+
+```bash Windows
+# Windows 10 or later
+# 64-bit only
+```
+</CodeGroup>
+
+## Tech Stack
+
+File Viewers is built with modern web and native technologies:
+
+| Layer | Technology |
+|-------|------------|
+| App shell | Tauri 2 |
+| UI framework | React 19 + TypeScript |
+| Build tooling | Vite 7 + Tailwind CSS 4 |
+| Code editor | Monaco Editor (local bundle) |
+| Markdown | react-markdown + remark-gfm + rehype-highlight |
+| JSON viewer | react-json-view-lite |
+| CSV table | TanStack Table v8 + PapaParse |
+| CSV SQL | alasql (in-memory SQL engine) |
+| UI primitives | Base UI (`@base-ui/react`) |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Set up your development environment and install dependencies
+  </Card>
+  
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Open your first file and explore the viewer modes
+  </Card>
+</CardGroup>

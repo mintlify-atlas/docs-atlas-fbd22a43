@@ -1,0 +1,281 @@
+---
+title: Production Build
+description: Build and package File Viewers for distribution
+---
+
+## Building for Production
+
+The production build creates optimized, platform-specific application bundles ready for distribution.
+
+### Build Command
+
+To build for your current platform:
+
+```bash
+bun run tauri build
+```
+
+This command:
+1. Runs `tsc && vite build` to compile TypeScript and bundle the frontend
+2. Compiles the Rust backend in release mode with optimizations
+3. Packages the application into platform-specific bundles
+
+## Build Output Locations
+
+All build artifacts are located under `src-tauri/target/release/bundle/`.
+
+### macOS
+
+| Bundle Type | Directory | Artifacts |
+|-------------|-----------|-----------||
+| App Bundle | `macos/` | `File Viewers.app` |
+| Disk Image | `dmg/` | `File Viewers_*.dmg` |
+
+**Universal Binary**: macOS builds support both Apple Silicon (arm64) and Intel (x86_64) with a single universal binary.
+
+To build a universal binary:
+
+```bash
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+bun run tauri build -- --target universal-apple-darwin
+```
+
+### Linux
+
+| Bundle Type | Directory | Artifacts |
+|-------------|-----------|-----------||
+| Debian Package | `deb/` | `file-viewers_*.deb` |
+| AppImage | `appimage/` | `file-viewers_*.AppImage` |
+| RPM Package | `rpm/` | `file-viewers_*.rpm` |
+
+**Distribution Support**:
+- `.deb` for Debian, Ubuntu, Linux Mint, Pop!_OS
+- `.AppImage` for universal Linux compatibility
+- `.rpm` for Fedora, RHEL, CentOS, openSUSE
+
+### Windows
+
+| Bundle Type | Directory | Artifacts |
+|-------------|-----------|-----------||
+| MSI Installer | `msi/` | `File Viewers_*.msi` |
+| NSIS Installer | `nsis/` | `File Viewers_*-setup.exe` |
+
+**Installer Options**:
+- **MSI**: Windows Installer package, better for enterprise deployments
+- **NSIS**: Nullsoft Scriptable Install System, customizable installer with modern UI
+
+## Build Configuration
+
+Build settings are defined in `src-tauri/tauri.conf.json`:
+
+```json
+"build": {
+  "beforeBuildCommand": "bun run build",
+  "frontendDist": "../dist"
+},
+"bundle": {
+  "active": true,
+  "targets": "all",
+  "icon": [
+    "icons/32x32.png",
+    "icons/128x128.png",
+    "icons/128x128@2x.png",
+    "icons/icon.icns",
+    "icons/icon.ico"
+  ]
+}
+```
+
+- `beforeBuildCommand` runs the Vite production build
+- `frontendDist` points to the Vite output directory
+- `targets: "all"` generates all bundle types for the current platform
+
+## GitHub Actions Release Workflow
+
+The project includes a fully automated release workflow that builds for all platforms in parallel.
+
+### Triggering a Release
+
+Releases are triggered when you create a new GitHub Release:
+
+<Steps>
+  <Step title="Tag a new version">
+    ```bash
+    git tag v0.3.0
+    git push origin v0.3.0
+    ```
+  </Step>
+
+  <Step title="Create GitHub Release">
+    Go to GitHub → Releases → Draft a new release, select your tag, and publish.
+  </Step>
+
+  <Step title="Automated builds start">
+    The `.github/workflows/release.yml` workflow automatically:
+    - Builds macOS universal DMG (arm64 + x86_64)
+    - Builds Linux .deb, .AppImage, and .rpm
+    - Builds Windows .msi and .exe installers
+    - Uploads all artifacts to the GitHub Release
+  </Step>
+</Steps>
+
+### Release Jobs
+
+The workflow runs four parallel jobs:
+
+#### macOS Release (`release-macos`)
+
+```yaml
+- name: Build and publish .dmg
+  uses: tauri-apps/tauri-action@v0
+  with:
+    projectPath: desktop-app
+    tagName: ${{ github.event.release.tag_name }}
+    args: --bundles dmg --target universal-apple-darwin
+```
+
+**Features**:
+- Universal binary (arm64 + x86_64)
+- Code signing and notarization (when secrets are configured)
+- Runs on `macos-latest` runner
+
+#### Linux Release (`release-linux`)
+
+```yaml
+- name: Build and publish .deb + .AppImage
+  uses: tauri-apps/tauri-action@v0
+  with:
+    projectPath: desktop-app
+    args: --bundles deb,appimage
+```
+
+**System Dependencies**:
+```bash
+libwebkit2gtk-4.1-dev
+libssl-dev
+libgtk-3-dev
+libayatana-appindicator3-dev
+librsvg2-dev
+patchelf
+```
+
+#### Fedora RPM Release (`release-linux-fedora`)
+
+```yaml
+- name: Build and publish .rpm
+  uses: tauri-apps/tauri-action@v0
+  with:
+    projectPath: desktop-app
+    args: --bundles rpm
+```
+
+Runs in a Fedora container to build RPM packages.
+
+#### Windows Release (`release-windows`)
+
+```yaml
+- name: Build and publish .msi + .exe
+  uses: tauri-apps/tauri-action@v0
+  with:
+    projectPath: desktop-app
+    args: --bundles msi,nsis
+```
+
+**Bundle Types**:
+- MSI for Windows Installer
+- NSIS for custom installer with modern UI
+
+## Code Signing
+
+### macOS Code Signing
+
+The workflow supports optional code signing for macOS:
+
+**Required Secrets** (for signed builds):
+- `APPLE_CERTIFICATE` - Developer ID Application certificate (base64)
+- `APPLE_CERTIFICATE_PASSWORD` - Certificate password
+- `APPLE_SIGNING_IDENTITY` - Certificate identity name
+- `APPLE_ID` - Apple ID for notarization
+- `APPLE_PASSWORD` - App-specific password
+- `APPLE_TEAM_ID` - Apple Developer Team ID
+
+If these secrets are not configured, the workflow builds an unsigned DMG. The app will work but macOS Gatekeeper will show a warning on first launch.
+
+### Windows Code Signing
+
+Windows code signing is not currently configured in the workflow but can be added via the `WINDOWS_CERTIFICATE` and `WINDOWS_CERTIFICATE_PASSWORD` secrets.
+
+## Local Production Testing
+
+To test production bundles locally before releasing:
+
+<Steps>
+  <Step title="Build the bundle">
+    ```bash
+    bun run tauri build
+    ```
+  </Step>
+
+  <Step title="Locate the bundle">
+    Navigate to `src-tauri/target/release/bundle/` and find your platform's directory.
+  </Step>
+
+  <Step title="Install and test">
+    - **macOS**: Open the `.dmg` or run `File Viewers.app`
+    - **Linux**: Install the `.deb` with `sudo dpkg -i file-viewers_*.deb` or run the `.AppImage`
+    - **Windows**: Run the `.msi` or `.exe` installer
+  </Step>
+</Steps>
+
+## Build Optimization
+
+The Rust backend is built with full optimizations in release mode:
+
+- Profile: `release`
+- Optimization level: `3`
+- LTO: Enabled for smaller binaries
+- Code generation units: Optimized for performance
+
+The Vite frontend build includes:
+
+- Minification via esbuild
+- Tree-shaking for unused code elimination
+- Asset optimization and hashing
+- Source maps (optional)
+
+## Troubleshooting
+
+### Build Fails on macOS
+
+Ensure you have Xcode Command Line Tools installed:
+
+```bash
+xcode-select --install
+```
+
+### Build Fails on Linux
+
+Install required system dependencies:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  libwebkit2gtk-4.1-dev \
+  libssl-dev \
+  libgtk-3-dev \
+  libayatana-appindicator3-dev \
+  librsvg2-dev \
+  patchelf
+```
+
+### Build Fails on Windows
+
+Ensure you have:
+- Visual Studio Build Tools or Visual Studio with C++ development tools
+- Windows SDK
+
+## Next Steps
+
+- Review [Platform Support](/building/platform-support) for platform-specific details
+- Learn about [Development Setup](/building/development-setup)
+- See the [Architecture documentation](https://github.com/yourusername/file-viewers/blob/main/desktop-app/docs/architecture.md)

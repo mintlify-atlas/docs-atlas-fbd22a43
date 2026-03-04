@@ -1,0 +1,311 @@
+---
+title: Platform Support
+description: Supported platforms and platform-specific considerations for File Viewers
+---
+
+## Supported Platforms
+
+File Viewers is built with Tauri 2 and supports the following desktop platforms:
+
+| Platform | Minimum Version | Architectures |
+|----------|----------------|---------------||
+| macOS | 12+ (Monterey) | arm64 (Apple Silicon), x86_64 (Intel) |
+| Linux | GTK 3.24+ | x86_64 |
+| Windows | 10+ | x86_64 |
+
+## Platform-Specific Bundle Types
+
+### macOS
+
+**Bundle Formats**:
+- **`.app`** - macOS application bundle
+- **`.dmg`** - Disk image for distribution (recommended)
+
+**Architecture Support**:
+- **Universal Binary**: Single binary that runs natively on both Apple Silicon (M1/M2/M3) and Intel Macs
+- Built with `--target universal-apple-darwin`
+
+**Installation**:
+1. Download the `.dmg` file from the releases page
+2. Open the `.dmg` file
+3. Drag `File Viewers.app` to the Applications folder
+4. First launch: Right-click → Open (to bypass Gatekeeper if unsigned)
+
+**Code Signing**:
+- Signed releases require a Developer ID Application certificate
+- Unsigned releases will show a Gatekeeper warning on first launch
+- Users can allow the app via System Preferences → Security & Privacy
+
+### Linux
+
+**Bundle Formats**:
+- **`.deb`** - Debian package (Debian, Ubuntu, Linux Mint, Pop!_OS)
+- **`.AppImage`** - Universal Linux binary (all distributions)
+- **`.rpm`** - RPM package (Fedora, RHEL, CentOS, openSUSE)
+
+**System Requirements**:
+- GTK 3.24 or later
+- WebKit2GTK 4.1
+- glibc 2.31+ (Ubuntu 20.04+, Debian 11+, Fedora 32+)
+
+**Installation by Package Type**:
+
+<Steps>
+  <Step title="Debian/Ubuntu (.deb)">
+    ```bash
+    sudo dpkg -i file-viewers_*.deb
+    sudo apt-get install -f  # Install dependencies if needed
+    ```
+    
+    Launch from applications menu or run `file-viewers` in terminal.
+  </Step>
+
+  <Step title="AppImage (Universal)">
+    ```bash
+    chmod +x file-viewers_*.AppImage
+    ./file-viewers_*.AppImage
+    ```
+    
+    No installation required - runs directly. Optionally integrate with [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher).
+  </Step>
+
+  <Step title="Fedora/RHEL (.rpm)">
+    ```bash
+    sudo dnf install file-viewers_*.rpm
+    # or on older systems:
+    sudo yum install file-viewers_*.rpm
+    ```
+    
+    Launch from applications menu or run `file-viewers` in terminal.
+  </Step>
+</Steps>
+
+**Required System Libraries**:
+
+For building from source on Linux:
+
+```bash
+# Debian/Ubuntu
+sudo apt-get update
+sudo apt-get install -y \
+  libwebkit2gtk-4.1-dev \
+  libssl-dev \
+  libgtk-3-dev \
+  libayatana-appindicator3-dev \
+  librsvg2-dev \
+  patchelf
+
+# Fedora
+sudo dnf install -y \
+  gtk3-devel \
+  webkit2gtk4.1-devel \
+  openssl-devel \
+  libappindicator-gtk3-devel \
+  librsvg2-devel \
+  patchelf
+```
+
+### Windows
+
+**Bundle Formats**:
+- **`.msi`** - Windows Installer package
+- **`.exe`** - NSIS installer with modern UI
+
+**System Requirements**:
+- Windows 10 or later (64-bit)
+- WebView2 Runtime (automatically installed if missing)
+
+**Installation**:
+
+<Steps>
+  <Step title="MSI Installer">
+    1. Download `File Viewers_*.msi` from the releases page
+    2. Double-click to run the installer
+    3. Follow the installation wizard
+    4. MSI packages support silent installation: `msiexec /i "File Viewers.msi" /quiet`
+  </Step>
+
+  <Step title="NSIS Installer">
+    1. Download `File Viewers_*-setup.exe` from the releases page
+    2. Run the installer
+    3. Choose installation directory
+    4. Launch from Start Menu or Desktop shortcut
+  </Step>
+</Steps>
+
+**Administrator Rights**:
+- MSI installation may require administrator privileges
+- NSIS installer can be configured for per-user or system-wide installation
+
+## Tauri 2 Platform Features
+
+File Viewers leverages Tauri 2's cross-platform capabilities:
+
+### Native OS Menu
+
+Platform-specific menu integration:
+- **macOS**: Native menu bar with standard macOS shortcuts
+- **Windows**: In-window menu bar
+- **Linux**: GTK native menu
+
+**File Menu**:
+- **Open File** (`Ctrl/Cmd+O`) - Native file picker dialog
+- Supported formats: `.md`, `.markdown`, `.json`, `.csv`
+
+### Drag and Drop
+
+Tauri v2 Webview API provides native drag-and-drop:
+- Drop files directly onto the window
+- Visual overlay feedback during drag
+- Auto-detects file type by extension
+- No browser API limitations
+
+### File System Access
+
+Secure file system access via Tauri capabilities:
+
+```json
+{
+  "permissions": [
+    "dialog:allow-open",
+    "fs:allow-read-text-file",
+    "fs:scope-home-recursive"
+  ]
+}
+```
+
+- Read-only access to user home directory
+- Native file picker integration
+- Sandboxed file system access
+
+### Window Configuration
+
+```json
+{
+  "title": "File Viewers",
+  "titleBarStyle": "Overlay",
+  "width": 1200,
+  "height": 760,
+  "minWidth": 640,
+  "minHeight": 400
+}
+```
+
+- **Overlay title bar** (macOS) - Content extends into title bar
+- **Hidden title** - Custom UI controls instead of default title
+- **DevTools** - Enabled in development builds
+
+## Platform-Specific Considerations
+
+### macOS
+
+**Performance**:
+- Universal binaries run natively on both architectures
+- No Rosetta 2 translation overhead on Apple Silicon
+
+**Security**:
+- Gatekeeper may block unsigned apps
+- Users must right-click → Open for unsigned builds
+- Signed builds require Apple Developer account
+
+**UI Integration**:
+- Native macOS menu bar
+- Standard keyboard shortcuts (Cmd+O, Cmd+Q)
+- Overlay title bar for modern appearance
+
+### Linux
+
+**Desktop Environments**:
+- Tested on GNOME, KDE Plasma, XFCE, Cinnamon
+- GTK theme integration for native look
+- Wayland and X11 supported
+
+**Distribution Compatibility**:
+- `.AppImage` recommended for maximum compatibility
+- `.deb` for Debian-based distributions
+- `.rpm` for Red Hat-based distributions
+
+**Known Issues**:
+- Some desktop environments require `WEBKIT_DISABLE_COMPOSITING_MODE=1`
+- Accessibility bridge warnings can be suppressed with `NO_AT_BRIDGE=1`
+
+### Windows
+
+**WebView2**:
+- Tauri 2 uses Microsoft Edge WebView2
+- Automatically installed if missing
+- Always up-to-date with Windows Update
+
+**Installer Comparison**:
+- **MSI**: Better for enterprise, supports Group Policy, silent install
+- **NSIS**: Customizable UI, smaller file size, user-friendly
+
+**SmartScreen**:
+- Unsigned executables may trigger SmartScreen warnings
+- Code signing certificate eliminates warnings
+
+## Building for Multiple Platforms
+
+### Cross-Compilation Limitations
+
+Tauri does not support cross-compilation. Each platform must be built on its native OS:
+
+- **macOS builds** require macOS
+- **Linux builds** require Linux
+- **Windows builds** require Windows
+
+### CI/CD Strategy
+
+The GitHub Actions workflow builds all platforms in parallel:
+
+```yaml
+jobs:
+  release-macos:    # runs-on: macos-latest
+  release-linux:    # runs-on: ubuntu-22.04
+  release-linux-fedora:  # container: fedora:latest
+  release-windows:  # runs-on: windows-latest
+```
+
+Each job:
+1. Installs platform-specific dependencies
+2. Sets up Bun and Rust
+3. Builds the Tauri application
+4. Uploads artifacts to GitHub Release
+
+## Testing on Different Platforms
+
+### macOS
+
+```bash
+# Test on both architectures
+arch -arm64 /Applications/File\ Viewers.app/Contents/MacOS/File\ Viewers  # Apple Silicon
+arch -x86_64 /Applications/File\ Viewers.app/Contents/MacOS/File\ Viewers # Intel
+```
+
+### Linux
+
+```bash
+# Test .deb installation
+sudo dpkg -i file-viewers_*.deb
+file-viewers
+
+# Test AppImage directly
+chmod +x file-viewers_*.AppImage
+./file-viewers_*.AppImage
+```
+
+### Windows
+
+```powershell
+# Silent MSI installation
+msiexec /i "File Viewers.msi" /quiet /l*v install.log
+
+# Verify installation
+"C:\Program Files\File Viewers\File Viewers.exe"
+```
+
+## Next Steps
+
+- Learn about [Development Setup](/building/development-setup)
+- Read about [Production Build](/building/production-build) process
+- See the [Tauri 2 documentation](https://v2.tauri.app/) for advanced platform features

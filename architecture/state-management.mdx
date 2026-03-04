@@ -1,0 +1,349 @@
+---
+title: State Management
+description: How state is structured, updated, and derived in File Viewers
+---
+
+## Top-Level State
+
+All state lives in `App.tsx`. Child components are pure and receive data via props.
+
+### State Variables
+
+| State | Type | Default | Description |
+|-------|------|---------|-------------|
+| `format` | `Format` | `"markdown"` | Active tab (`"markdown"` \| `"json"` \| `"csv"`) |
+| `content` | `Record<Format, string>` | `{ markdown: "", json: "", csv: "" }` | Per-format editor text; switching tabs preserves each tab's content |
+| `themePref` | `ThemePreference` | `"system"` | User theme selection (`"system"` \| `"light"` \| `"dark"`) |
+| `systemDark` | `boolean` | `window.matchMedia(…).matches` | OS dark-mode state (only updated when `themePref === "system"`) |
+| `themeMenuOpen` | `boolean` | `false` | Theme dropdown visibility |
+| `isDragOver` | `boolean` | `false` | Drag-over overlay visibility |
+
+### TypeScript Interfaces
+
+```tsx
+// App.tsx
+type Format = "markdown" | "json" | "csv";
+type ThemePreference = "system" | "dark" | "light";
+
+const [format, setFormat] = useState<Format>("markdown");
+const [content, setContent] = useState<Record<Format, string>>({
+  markdown: "",
+  json: "",
+  csv: "",
+});
+const [themePref, setThemePref] = useState<ThemePreference>("system");
+const [systemDark, setSystemDark] = useState(() =>
+  window.matchMedia("(prefers-color-scheme: dark)").matches
+);
+const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+const [isDragOver, setIsDragOver] = useState(false);
+```
+
+## Derived State
+
+`isDark` is computed, not stored:
+
+```tsx
+const isDark = themePref === "dark" || (themePref === "system" && systemDark);
+```
+
+This boolean is passed down to components that need explicit theme awareness:
+
+- **EditorPanel**: Selects Monaco theme (`"vs-dark"` vs `"vs"`)
+- **JsonPreview**: Selects `react-json-view-lite` styles (`darkStyles` vs `defaultStyles`)
+
+## Per-Format Content Persistence
+
+Switching between Markdown, JSON, and CSV tabs preserves each format's content:
+
+```tsx
+const handleFormatChange = (newFormat: Format) => {
+  setFormat(newFormat);
+};
+
+const handleContentChange = (newValue: string) => {
+  setContent((prev) => ({
+    ...prev,
+    [format]: newValue,  // Only update the active format
+  }));
+};
+```
+
+### Why This Pattern?
+
+Users can:
+1. Paste Markdown into the Markdown tab
+2. Switch to JSON tab and paste JSON
+3. Switch back to Markdown tab — their Markdown content is still there
+
+Each tab acts as an independent workspace.
+
+## Controlled Component Pattern
+
+All child components are controlled — they receive their current value and an `onChange` callback:
+
+```tsx
+<EditorPanel
+  value={content[format]}
+  onChange={(newValue) => setContent((prev) => ({ ...prev, [format]: newValue }))}
+  language={FORMAT_LANGUAGE[format]}
+  isDark={isDark}
+/>
+```
+
+### Benefits
+
+1. **Single source of truth** - State lives in one place (`App.tsx`)
+2. **Predictable updates** - All state changes flow through explicit setter functions
+3. **Easier debugging** - Use React DevTools to inspect state at the top level
+
+## State Update Patterns
+
+### 1. Direct Updates
+
+Simple boolean toggles:
+
+```tsx
+setThemeMenuOpen((prev) => !prev);
+setIsDragOver(true);
+```
+
+### 2. Conditional Updates
+
+Format-specific actions (e.g., JSON formatting):
+
+```tsx
+const formatJson = useCallback(() => {
+  try {
+    const formatted = JSON.stringify(JSON.parse(content["json"]), null, 2);
+    setContent((prev) => ({ ...prev, json: formatted }));
+  } catch {
+    // Invalid JSON — leave as-is
+  }
+}, [content]);
+```
+
+### 3. Async Updates
+
+File loading from Tauri APIs:
+
+```tsx
+const loadFile = useCallback(async (path: string) => {
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  const fmt: Format = EXT_TO_FORMAT[ext] ?? "markdown";
+  const text = await readTextFile(path);
+  
+  setContent((prev) => ({ ...prev, [fmt]: text }));
+  setFormat(fmt);
+}, []);
+```
+
+## Theme State Management
+
+### Theme Preference Flow
+
+```mermaid
+graph LR
+    A[User clicks theme button] --> B[setThemePref]
+    B --> C{themePref value}
+    C -->|"system"| D[Read systemDark]
+    C -->|"dark"| E[isDark = true]
+    C -->|"light"| F[isDark = false]
+    D --> G[isDark = themePref === 'dark' || themePref === 'system' && systemDark]
+    E --> G
+    F --> G
+    G --> H[useEffect: set data-theme attribute]
+    H --> I[CSS variables update]
+```
+
+### System Appearance Listener
+
+When `themePref === "system"`, an effect watches for OS theme changes:
+
+```tsx
+useEffect(() => {
+  if (themePref !== "system") return;
+  
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  const handler = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+  mq.addEventListener("change", handler);
+  
+  return () => mq.removeEventListener("change", handler);
+}, [themePref]);
+```
+
+When the user switches to an explicit theme (`"light"` or `"dark"`), the listener is cleaned up.
+
+### CSS Application
+
+Another effect applies the computed theme to the DOM:
+
+```tsx
+useEffect(() => {
+  document.documentElement.setAttribute(
+    "data-theme",
+    isDark ? "dark" : "light"
+  );
+}, [isDark]);
+```
+
+CSS variables in `App.css` respond to the `[data-theme]` attribute:
+
+```css
+:root {
+  /* Dark theme (default) */
+  --color-bg: #1a1a1a;
+  --color-text: #e5e5e5;
+}
+
+[data-theme="light"] {
+  --color-bg: #ffffff;
+  --color-text: #171717;
+}
+```
+
+## Drag-and-Drop State
+
+The `isDragOver` state controls the visibility of a full-screen drop overlay:
+
+```tsx
+useEffect(() => {
+  let cancelled = false;
+  let unlisten: (() => void) | null = null;
+  
+  getCurrentWebview()
+    .onDragDropEvent(async (event) => {
+      const { type } = event.payload;
+      if (type === "enter" || type === "over") {
+        setIsDragOver(true);
+      } else if (type === "drop") {
+        setIsDragOver(false);
+        for (const path of event.payload.paths) {
+          const ext = path.split(".").pop()?.toLowerCase() ?? "";
+          if (EXT_TO_FORMAT[ext]) {
+            await loadFile(path);
+            break;  // Only load the first recognized file
+          }
+        }
+      } else {
+        setIsDragOver(false);  // "leave"
+      }
+    })
+    .then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+  
+  return () => {
+    cancelled = true;
+    unlisten?.();
+  };
+}, [loadFile]);
+```
+
+### Cancelled Flag Pattern
+
+The `cancelled` flag prevents race conditions with React StrictMode's double-invocation of effects in development.
+
+## Theme Menu State
+
+The theme dropdown is controlled by `themeMenuOpen`:
+
+```tsx
+<div className="theme-menu-wrap" ref={themeMenuRef}>
+  <Button onClick={() => setThemeMenuOpen((o) => !o)}>
+    {THEME_ICONS[themePref]}
+    {THEME_LABELS[themePref]}
+  </Button>
+  {themeMenuOpen && (
+    <div className="theme-dropdown">
+      {/* ... theme options ... */}
+    </div>
+  )}
+</div>
+```
+
+A click-outside handler closes the dropdown:
+
+```tsx
+useEffect(() => {
+  if (!themeMenuOpen) return;
+  
+  function handleClick(e: MouseEvent) {
+    if (themeMenuRef.current && !themeMenuRef.current.contains(e.target as Node)) {
+      setThemeMenuOpen(false);
+    }
+  }
+  
+  document.addEventListener("mousedown", handleClick);
+  return () => document.removeEventListener("mousedown", handleClick);
+}, [themeMenuOpen]);
+```
+
+## State Initialization
+
+Theme preference is read from `localStorage` on mount:
+
+```tsx
+function readStoredTheme(): ThemePreference {
+  try {
+    const raw = localStorage.getItem("fileviewers.theme");
+    if (raw === "system" || raw === "dark" || raw === "light") {
+      // Apply immediately to avoid flash-of-wrong-theme
+      const isDark = raw === "dark" ||
+        (raw === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.setAttribute(
+        "data-theme",
+        isDark ? "dark" : "light"
+      );
+      return raw;
+    }
+  } catch {}
+  return "system";
+}
+
+const [themePref, setThemePref] = useState<ThemePreference>(readStoredTheme);
+```
+
+This runs **before** the first React render, preventing a flash of the wrong theme.
+
+## Performance Considerations
+
+### 1. Stable Callbacks
+
+Key callbacks are wrapped in `useCallback` to prevent unnecessary re-renders:
+
+```tsx
+const loadFile = useCallback(async (path: string) => { … }, []);
+const openFile = useCallback(async () => { … }, [loadFile]);
+```
+
+### 2. CSV Input Isolation
+
+`CsvPreview` sub-components (`SearchInput`, `SqlInput`) own their own input state. Keystrokes only re-render those tiny components, not the entire table:
+
+```tsx
+// Inside SearchInput
+const [value, setValue] = useState("");
+const debouncedOnFilter = useMemo(
+  () => debounce(onFilter, 300),
+  [onFilter]
+);
+
+useEffect(() => {
+  debouncedOnFilter(value);
+}, [value, debouncedOnFilter]);
+```
+
+The parent `CsvPreview` only re-renders after 300ms of no typing.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Component Hierarchy" icon="diagram-project" href="/architecture/component-hierarchy">
+    See how components are structured and rendered
+  </Card>
+  <Card title="File Loading" icon="file-import" href="/architecture/file-loading">
+    Learn how files are loaded and mapped to formats
+  </Card>
+</CardGroup>

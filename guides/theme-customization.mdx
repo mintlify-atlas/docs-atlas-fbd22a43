@@ -1,0 +1,145 @@
+---
+title: Theme Customization
+description: Customize the appearance of File Viewers with light, dark, and system theme options
+---
+
+File Viewers includes a flexible theme system that adapts to your preferences and OS settings.
+
+## Theme Options
+
+The app supports three theme preferences:
+
+<CardGroup cols={3}>
+  <Card title="System" icon="desktop">
+    Automatically matches your operating system's dark/light mode preference
+  </Card>
+  <Card title="Light" icon="sun">
+    Forces light mode regardless of system settings
+  </Card>
+  <Card title="Dark" icon="moon">
+    Forces dark mode regardless of system settings
+  </Card>
+</CardGroup>
+
+## Switching Themes
+
+To change the theme:
+
+1. Click the theme button in the toolbar (displays current theme with icon)
+2. Select from the dropdown menu:
+   - **System** - Syncs with OS preference
+   - **Light** - Always light mode
+   - **Dark** - Always dark mode
+
+<Note>
+Your theme preference is saved to `localStorage` and persists between sessions.
+</Note>
+
+## How Themes Work
+
+### Theme Resolution
+
+The active theme is determined by this logic:
+
+```typescript
+const isDark = themePref === "dark" || (themePref === "system" && systemDark);
+```
+
+When you select **System**, File Viewers listens to OS appearance changes via `window.matchMedia("(prefers-color-scheme: dark)")` and updates automatically.
+
+### CSS Implementation
+
+Themes are applied using a `data-theme` attribute on the root element:
+
+```typescript
+document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+```
+
+CSS variables are defined in `:root` with dark mode defaults, then overridden under `[data-theme="light"]`.
+
+## Component Theme Support
+
+Different preview components handle themes in different ways:
+
+<AccordionGroup>
+  <Accordion title="Monaco Editor (Markdown, JSON, CSV)">
+    Receives `isDark` prop and switches between Monaco's built-in themes:
+    - Dark mode: `"vs-dark"`
+    - Light mode: `"vs"`
+  </Accordion>
+
+  <Accordion title="JSON Preview">
+    Uses `react-json-view-lite` with conditional style imports:
+    - Dark mode: `darkStyles`
+    - Light mode: `defaultStyles`
+  </Accordion>
+
+  <Accordion title="Markdown Preview">
+    Automatically follows CSS variables - no special handling needed
+  </Accordion>
+
+  <Accordion title="CSV Table">
+    Automatically follows CSS variables for all table elements, borders, and status bars
+  </Accordion>
+</AccordionGroup>
+
+## Theme Propagation Architecture
+
+From `App.tsx` (source: `desktop-app/src/App.tsx:198`):
+
+```tsx
+const isDark = themePref === "dark" || (themePref === "system" && systemDark);
+
+useEffect(() => {
+  document.documentElement.setAttribute(
+    "data-theme",
+    isDark ? "dark" : "light",
+  );
+}, [isDark]);
+```
+
+The `isDark` boolean is passed as a prop to:
+- `EditorPanel` - Monaco editor theme
+- `JsonPreview` - JSON viewer styles
+
+<Tip>
+Components that don't receive the `isDark` prop (like `MarkdownPreview` and `CsvPreview`) automatically adapt using CSS custom properties.
+</Tip>
+
+## Flash-of-Wrong-Theme Prevention
+
+File Viewers applies the stored theme **before React renders** to prevent a flash of the wrong theme:
+
+```typescript
+function readStoredTheme(): ThemePreference {
+  const raw = localStorage.getItem(STORAGE_THEME_KEY);
+  if (raw === "system" || raw === "dark" || raw === "light") {
+    // Apply immediately to avoid flash-of-wrong-theme
+    const isDark =
+      raw === "dark" ||
+      (raw === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.setAttribute(
+      "data-theme",
+      isDark ? "dark" : "light",
+    );
+    return raw;
+  }
+  return "system";
+}
+```
+
+This function runs during module initialization, before React mounts the component tree.
+
+## CSS Variables
+
+All theme-aware components reference CSS custom properties:
+
+- `--bg-toolbar` - Toolbar background
+- `--border` - Border colors
+- `--text-muted` - Muted text
+- `--csv-thead-bg` - CSV table header background
+- And many more...
+
+<Warning>
+Do not hardcode colors in component styles. Always use CSS variables to ensure theme compatibility.
+</Warning>

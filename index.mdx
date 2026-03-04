@@ -1,97 +1,192 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "File Viewers Documentation"
+description: "A cross-platform desktop app for viewing and editing Markdown, JSON, and CSV files"
+mode: "custom"
 ---
 
-## Setting up
+<div className="relative overflow-hidden bg-gradient-to-br from-[#121212] via-[#1a1a1a] to-[#0f0f0f] dark:from-[#121212] dark:via-[#1a1a1a] dark:to-[#0f0f0f] py-20 border-b border-gray-200 dark:border-[#27272a]">
+  <div className="max-w-6xl mx-auto px-6 lg:px-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <div className="lg:col-span-7">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+          View and edit files with ease
+        </h1>
+        <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-2xl">
+          A powerful cross-platform desktop app for viewing and editing Markdown, JSON, and CSV files with advanced features like syntax highlighting, SQL queries, and live preview.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <a
+            href="/quickstart"
+            className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-[#f04e1e] hover:bg-[#E94B1B] text-white font-semibold transition-colors no-underline"
+          >
+            Get Started
+          </a>
+          <a
+            href="/introduction"
+            className="inline-flex items-center justify-center px-6 py-3 rounded-full border border-white/30 bg-white/10 dark:border-white/30 dark:bg-white/10 text-gray-900 dark:text-white font-semibold hover:bg-white/20 dark:hover:bg-white/20 transition-colors no-underline"
+          >
+            Learn More
+          </a>
+        </div>
+      </div>
+      <div className="lg:col-span-5 hidden lg:block">
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-[#ec4618] to-[#f8a484] opacity-20 blur-3xl rounded-full"></div>
+          <svg className="relative w-full h-auto" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <rect x="20" y="40" width="160" height="120" rx="8" fill="rgba(255,255,255,0.1)" stroke="#ec4618" strokeWidth="2"/>
+            <rect x="30" y="55" width="70" height="90" fill="rgba(236,70,24,0.2)" rx="4"/>
+            <line x1="110" y1="55" x2="170" y2="55" stroke="#f8a484" strokeWidth="2"/>
+            <line x1="110" y1="75" x2="170" y2="75" stroke="#f8a484" strokeWidth="2"/>
+            <line x1="110" y1="95" x2="170" y2="95" stroke="#f8a484" strokeWidth="2"/>
+            <circle cx="40" cy="30" r="4" fill="#ec4618"/>
+            <circle cx="52" cy="30" r="4" fill="#f8a484"/>
+            <circle cx="64" cy="30" r="4" fill="#ec4618"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">Quick Start</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Get File Viewers running on your machine in minutes</p>
+  
+  <Steps>
+    <Step title="Install prerequisites">
+      Make sure you have Rust (stable toolchain) and Bun >= 1.0 installed on your system.
+      
+      ```bash
+      # Check if Rust is installed
+      rustc --version
+      
+      # Check if Bun is installed
+      bun --version
+      ```
+    </Step>
+    
+    <Step title="Clone and install">
+      Clone the repository and install dependencies with Bun.
+      
+      ```bash
+      git clone https://github.com/fuongz/file-viewers.git
+      cd file-viewers/desktop-app
+      bun install
+      ```
+    </Step>
+    
+    <Step title="Launch the app">
+      Start the development server and open File Viewers.
+      
+      ```bash
+      bun run tauri dev
+      ```
+      
+      The app will launch automatically. You can now open Markdown, JSON, or CSV files using **⌘O** (macOS) or by dragging files into the window.
+    </Step>
+  </Steps>
+</div>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">Explore features</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Discover what makes File Viewers powerful and easy to use</p>
+  
+  <CardGroup cols={3}>
     <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+      title="Markdown viewer"
+      icon="markdown"
+      href="/features/markdown-viewer"
+    >
+      GitHub-flavored Markdown with live preview and syntax highlighting
+    </Card>
+    <Card
+      title="JSON viewer"
+      icon="brackets-curly"
+      href="/features/json-viewer"
+    >
+      Interactive JSON tree viewer with format and minify options
+    </Card>
+    <Card
+      title="CSV viewer"
+      icon="table"
+      href="/features/csv-viewer"
+    >
+      Advanced table view with search, sort, and SQL query capabilities
+    </Card>
+    <Card
+      title="Monaco editor"
+      icon="code"
+      href="/components/editor-panel"
+    >
+      Professional code editor with IntelliSense and syntax validation
+    </Card>
+    <Card
+      title="Theme system"
+      icon="palette"
+      href="/guides/theme-customization"
+    >
+      Light, dark, and system theme modes with seamless switching
+    </Card>
+    <Card
+      title="Cross-platform"
+      icon="desktop"
+      href="/building/platform-support"
+    >
+      Works on macOS 12+, Linux (GTK), and Windows 10+
+    </Card>
+  </CardGroup>
+</div>
 
-## Create beautiful pages
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">Developer resources</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Learn how File Viewers is built and how to contribute</p>
+  
+  <CardGroup cols={2}>
+    <Card
+      title="Architecture overview"
+      icon="sitemap"
+      href="/architecture/overview"
+    >
+      Understand the component hierarchy and state management patterns
+    </Card>
+    <Card
+      title="Component reference"
+      icon="puzzle-piece"
+      href="/components/ui-primitives"
+    >
+      Browse the UI primitives and preview components
+    </Card>
+    <Card
+      title="Development setup"
+      icon="hammer"
+      href="/building/development-setup"
+    >
+      Set up your local development environment
+    </Card>
+    <Card
+      title="Production build"
+      icon="box"
+      href="/building/production-build"
+    >
+      Build and package File Viewers for distribution
+    </Card>
+  </CardGroup>
+</div>
 
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-[#27272a] bg-gray-50 dark:bg-[#1a1d27] p-8 sm:p-12">
+    <div className="relative z-10">
+      <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">Ready to get started?</h2>
+      <p className="text-base text-gray-600 dark:text-gray-400 mb-6 max-w-2xl">
+        Install File Viewers and start viewing and editing your files with a powerful, modern interface.
+      </p>
+      <a
+        href="/quickstart"
+        className="inline-flex items-center justify-center px-6 py-3 rounded-lg bg-[#f04e1e] hover:bg-[#E94B1B] text-white font-semibold transition-colors no-underline"
+      >
+        Get Started
+      </a>
+    </div>
+    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#ec4618] to-[#f8a484] opacity-10 blur-3xl rounded-full"></div>
+  </div>
+</div>
